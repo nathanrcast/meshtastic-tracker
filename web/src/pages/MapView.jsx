@@ -5,15 +5,30 @@ import MessagePanel from "../components/MessagePanel";
 
 export default function MapView() {
   const [nodes, setNodes] = useState([]);
-  const [messages, setMessages] = useState([]);
+  const [messagesByChannel, setMessagesByChannel] = useState({});
+  const [channels, setChannels] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState(0);
   const [trails, setTrails] = useState({});
   const [filter, setFilter] = useState("tracked");
 
   // Initial data load
   useEffect(() => {
     api.nodes().then(setNodes).catch(console.error);
-    api.messages(0, 100).then(setMessages).catch(console.error);
+    api.channels().then(setChannels).catch(console.error);
+    api.messages(0, 100).then((msgs) => {
+      setMessagesByChannel((prev) => ({ ...prev, 0: msgs }));
+    }).catch(console.error);
   }, []);
+
+  // Fetch history when switching to a channel with no cached messages
+  useEffect(() => {
+    if (messagesByChannel[selectedChannel]) return;
+    api.messages(selectedChannel, 100).then((msgs) => {
+      setMessagesByChannel((prev) => ({ ...prev, [selectedChannel]: msgs }));
+    }).catch(console.error);
+  }, [selectedChannel]);
+
+  const visibleMessages = messagesByChannel[selectedChannel] || [];
 
   const trackedIds = useMemo(
     () => new Set(nodes.filter((n) => n.is_tracked).map((n) => n.node_id)),
@@ -72,7 +87,11 @@ export default function MapView() {
         };
       });
     } else if (event.type === "message") {
-      setMessages((prev) => [...prev, event]);
+      const ch = event.channel ?? 0;
+      setMessagesByChannel((prev) => ({
+        ...prev,
+        [ch]: [...(prev[ch] || []), event],
+      }));
     } else if (event.type === "node_update") {
       setNodes((prev) => {
         const exists = prev.some((n) => n.node_id === event.node_id);
@@ -154,7 +173,13 @@ export default function MapView() {
           </div>
         )}
       </div>
-      <MessagePanel messages={messages} trackedIds={trackedIds} />
+      <MessagePanel
+        messages={visibleMessages}
+        trackedIds={trackedIds}
+        channels={channels}
+        selectedChannel={selectedChannel}
+        onChannelChange={setSelectedChannel}
+      />
     </div>
   );
 }

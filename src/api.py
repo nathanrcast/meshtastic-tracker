@@ -83,6 +83,11 @@ def api_node_positions(node_id: str, hours: int = Query(default=24, ge=1, le=168
         db.close()
 
 
+@app.get("/api/channels")
+def api_channels():
+    return mesh.get_channels()
+
+
 @app.get("/api/messages")
 def api_messages(channel: int = Query(default=0, ge=0), limit: int = Query(default=100, ge=1, le=500)):
     db = SessionLocal()

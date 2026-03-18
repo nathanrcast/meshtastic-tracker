@@ -15,6 +15,7 @@ class MeshtasticManager:
         self._interface = None
         self._connected = False
         self._my_node_id: str | None = None
+        self._channels: list[dict] = []
         self._ws_callbacks: list = []
         self._lock = threading.Lock()
         self._running = False
@@ -62,8 +63,9 @@ class MeshtasticManager:
                 self._my_node_id = f"!{my_info.my_node_num:08x}"
 
             self._seed_nodes(iface)
+            self._cache_channels(iface)
             self._subscribe(iface)
-            log.info("Connected to Meshtastic (my_node=%s)", self._my_node_id)
+            log.info("Connected to Meshtastic (my_node=%s, channels=%d)", self._my_node_id, len(self._channels))
         except Exception:
             log.exception("Failed to connect to Meshtastic")
             self._connected = False
@@ -98,6 +100,24 @@ class MeshtasticManager:
             log.info("Seeded %d nodes from mesh", len(nodes))
         finally:
             db.close()
+
+    def _cache_channels(self, iface):
+        channels = []
+        try:
+            for ch in iface.localNode.channels:
+                if ch.role == 0:  # DISABLED
+                    continue
+                name = ch.settings.name or ("Primary" if ch.role == 1 else f"Channel {ch.index}")
+                role = "PRIMARY" if ch.role == 1 else "SECONDARY"
+                channels.append({"index": ch.index, "name": name, "role": role})
+        except Exception:
+            log.exception("Failed to read channels from device")
+        self._channels = channels
+
+    def get_channels(self) -> list[dict]:
+        if self._channels:
+            return self._channels
+        return [{"index": 0, "name": "Primary", "role": "PRIMARY"}]
 
     def _subscribe(self, iface):
         from pubsub import pub

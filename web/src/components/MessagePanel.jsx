@@ -7,7 +7,7 @@ function formatTime(iso) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function MessagePanel({ messages, onNewMessage, trackedIds }) {
+export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -22,7 +22,7 @@ export default function MessagePanel({ messages, onNewMessage, trackedIds }) {
     if (!text.trim() || sending) return;
     setSending(true);
     try {
-      await api.sendMessage(text.trim());
+      await api.sendMessage(text.trim(), selectedChannel);
       setText("");
     } catch (err) {
       console.error("Send failed:", err);
@@ -56,7 +56,25 @@ export default function MessagePanel({ messages, onNewMessage, trackedIds }) {
         <>
           <div className="px-3 py-2 border-b border-zinc-800">
             <h2 className="text-sm font-semibold text-zinc-100">Messages</h2>
-            <p className="text-xs text-zinc-500">Channel 0</p>
+            {channels.length <= 1 ? (
+              <p className="text-xs text-zinc-500">{channels[0]?.name || "Primary"}</p>
+            ) : (
+              <div className="flex gap-1 mt-1 overflow-x-auto">
+                {channels.map((ch) => (
+                  <button
+                    key={ch.index}
+                    onClick={() => onChannelChange(ch.index)}
+                    className={`px-2 py-0.5 rounded-full text-xs whitespace-nowrap transition-colors ${
+                      selectedChannel === ch.index
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-800 text-zinc-400 hover:text-zinc-100"
+                    }`}
+                  >
+                    {ch.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
