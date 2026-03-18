@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from src.config import DATABASE_URL
@@ -18,4 +18,10 @@ SessionLocal = sessionmaker(bind=engine)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(nodes)"))]
+        if "is_tracked" not in cols:
+            conn.execute(text("ALTER TABLE nodes ADD COLUMN is_tracked INTEGER DEFAULT 0"))
+            conn.commit()
+            log.info("Added is_tracked column to nodes table")
     log.info("Database initialized")

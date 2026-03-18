@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, useWebSocket } from "../api";
 import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
@@ -7,6 +7,7 @@ export default function MapView() {
   const [nodes, setNodes] = useState([]);
   const [messages, setMessages] = useState([]);
   const [trails, setTrails] = useState({});
+  const [filter, setFilter] = useState("tracked");
 
   // Initial data load
   useEffect(() => {
@@ -14,14 +15,32 @@ export default function MapView() {
     api.messages(0, 100).then(setMessages).catch(console.error);
   }, []);
 
-  // Load trails for nodes with positions
-  useEffect(() => {
-    const nodesWithPos = nodes.filter((n) => n.lat != null && n.lon != null);
-    if (nodesWithPos.length === 0) return;
+  const trackedIds = useMemo(
+    () => new Set(nodes.filter((n) => n.is_tracked).map((n) => n.node_id)),
+    [nodes]
+  );
 
+  const displayNodes = useMemo(
+    () => (filter === "tracked" ? nodes.filter((n) => n.is_tracked) : nodes),
+    [nodes, filter]
+  );
+
+  // Stable key for trail fetching — only re-fetch when the set of displayed node IDs changes
+  const displayNodeIds = useMemo(
+    () => displayNodes.filter((n) => n.lat != null && n.lon != null).map((n) => n.node_id).sort().join(","),
+    [displayNodes]
+  );
+
+  // Load trails only for displayed nodes with positions
+  useEffect(() => {
+    if (!displayNodeIds) {
+      setTrails({});
+      return;
+    }
+    const ids = displayNodeIds.split(",");
     Promise.all(
-      nodesWithPos.map((n) =>
-        api.nodePositions(n.node_id, 24).then((positions) => [n.node_id, positions])
+      ids.map((id) =>
+        api.nodePositions(id, 24).then((positions) => [id, positions])
       )
     ).then((results) => {
       const trailMap = {};
@@ -30,7 +49,7 @@ export default function MapView() {
       }
       setTrails(trailMap);
     });
-  }, [nodes]);
+  }, [displayNodeIds]);
 
   // WebSocket for real-time updates
   const handleEvent = useCallback((event) => {
@@ -79,6 +98,7 @@ export default function MapView() {
             altitude: null,
             last_heard: null,
             is_online: true,
+            is_tracked: false,
           },
         ];
       });
@@ -87,12 +107,54 @@ export default function MapView() {
 
   useWebSocket(handleEvent);
 
+  const hasTracked = trackedIds.size > 0;
+
   return (
     <div className="flex h-[calc(100vh-3rem)] md:h-screen">
-      <div className="flex-1">
-        <Map nodes={nodes} trails={trails} />
+      <div className="flex-1 relative">
+        <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
+
+        {/* Filter toggle */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg p-0.5 text-sm shadow-lg">
+          <button
+            onClick={() => setFilter("tracked")}
+            className={`px-3 py-1.5 rounded-md transition-colors ${
+              filter === "tracked"
+                ? "bg-emerald-600 text-white"
+                : "text-zinc-400 hover:text-zinc-100"
+            }`}
+          >
+            My Nodes
+          </button>
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1.5 rounded-md transition-colors ${
+              filter === "all"
+                ? "bg-indigo-600 text-white"
+                : "text-zinc-400 hover:text-zinc-100"
+            }`}
+          >
+            All Nodes ({nodes.length})
+          </button>
+        </div>
+
+        {/* Empty state for tracked filter */}
+        {filter === "tracked" && !hasTracked && (
+          <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
+            <div className="bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-xl p-6 text-center pointer-events-auto">
+              <p className="text-zinc-300 mb-2">No tracked nodes yet</p>
+              <p className="text-zinc-500 text-sm">
+                Go to the{" "}
+                <a href="/nodes" className="text-emerald-400 hover:underline">
+                  Nodes page
+                </a>{" "}
+                and star your family devices
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-      <MessagePanel messages={messages} />
+      <MessagePanel messages={messages} trackedIds={trackedIds} />
     </div>
   );
 }

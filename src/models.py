@@ -21,6 +21,7 @@ class Node(Base):
     altitude = Column(Integer, nullable=True)
     last_heard = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_online = Column(Integer, default=1)
+    is_tracked = Column(Integer, default=0)
 
     positions = relationship("NodePosition", back_populates="node", cascade="all, delete-orphan")
 

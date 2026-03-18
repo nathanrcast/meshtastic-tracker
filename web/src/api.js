@@ -18,7 +18,13 @@ async function fetchJSON(path, opts = {}) {
 }
 
 export const api = {
-  nodes: () => fetchJSON("/nodes"),
+  nodes: (tracked = false) => fetchJSON(`/nodes${tracked ? "?tracked=true" : ""}`),
+  setTracked: (nodeId, isTracked) =>
+    fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/tracked`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_tracked: isTracked }),
+    }),
   nodePositions: (nodeId, hours = 24) =>
     fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/positions?hours=${hours}`),
   messages: (channel = 0, limit = 100) =>

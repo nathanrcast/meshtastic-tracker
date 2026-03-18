@@ -7,7 +7,7 @@ function formatTime(iso) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function MessagePanel({ messages, onNewMessage }) {
+export default function MessagePanel({ messages, onNewMessage, trackedIds }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -63,7 +63,7 @@ export default function MessagePanel({ messages, onNewMessage }) {
             {messages.map((msg) => (
               <div key={msg.id} className="text-sm">
                 <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-indigo-400 text-xs">
+                  <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-indigo-400"}`}>
                     {msg.from_name || msg.from_id}
                   </span>
                   <span className="text-zinc-600 text-xs">{formatTime(msg.timestamp)}</span>

@@ -9,8 +9,8 @@ from pathlib import Path
 
 from src.db import SessionLocal, init_db
 from src.mesh import MeshtasticManager
-from src.queries import get_node_positions, get_stats, list_messages, list_nodes
-from src.schemas import SendMessage
+from src.queries import get_node_positions, get_stats, list_messages, list_nodes, set_node_tracked
+from src.schemas import SendMessage, TrackNodeRequest
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("meshtastic-web")
@@ -53,10 +53,23 @@ def on_shutdown():
 # -- REST endpoints --
 
 @app.get("/api/nodes")
-def api_nodes():
+def api_nodes(tracked: bool = Query(default=False)):
     db = SessionLocal()
     try:
-        return list_nodes(db)
+        return list_nodes(db, tracked_only=tracked)
+    finally:
+        db.close()
+
+
+@app.patch("/api/nodes/{node_id}/tracked")
+def api_track_node(node_id: str, body: TrackNodeRequest):
+    db = SessionLocal()
+    try:
+        node = set_node_tracked(db, node_id, body.is_tracked)
+        if not node:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Node not found")
+        return {"ok": True, "node_id": node_id, "is_tracked": body.is_tracked}
     finally:
         db.close()
 

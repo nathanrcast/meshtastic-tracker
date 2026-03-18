@@ -14,9 +14,14 @@ class NodeResponse(BaseModel):
     altitude: int | None
     last_heard: str | None
     is_online: bool
+    is_tracked: bool
 
     class Config:
         from_attributes = True
+
+
+class TrackNodeRequest(BaseModel):
+    is_tracked: bool
 
 
 class PositionResponse(BaseModel):

@@ -6,7 +6,21 @@ const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
 const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
-function createIcon(online) {
+function createIcon(online, tracked) {
+  if (tracked) {
+    const color = online ? "#34d399" : "#065f46";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
+      <circle cx="16" cy="16" r="10" fill="${color}" stroke="#18181b" stroke-width="2"/>
+    </svg>`;
+    return L.divIcon({
+      html: svg,
+      className: "",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16],
+    });
+  }
   const color = online ? "#818cf8" : "#52525b";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8" fill="${color}" stroke="#18181b" stroke-width="2"/>
@@ -37,7 +51,7 @@ function timeAgo(iso) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export default function Map({ nodes, trails }) {
+export default function Map({ nodes, trails, trackedIds }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef({});
@@ -65,6 +79,7 @@ export default function Map({ nodes, trails }) {
     const map = mapRef.current;
     if (!map || !nodes) return;
 
+    const tracked = trackedIds || new Set();
     const currentIds = new Set();
     const bounds = [];
 
@@ -73,6 +88,7 @@ export default function Map({ nodes, trails }) {
       currentIds.add(node.node_id);
       const pos = [node.lat, node.lon];
       bounds.push(pos);
+      const isTracked = tracked.has(node.node_id);
 
       const popup = `
         <div class="text-sm min-w-[160px]">
@@ -89,10 +105,10 @@ export default function Map({ nodes, trails }) {
 
       if (markersRef.current[node.node_id]) {
         markersRef.current[node.node_id].setLatLng(pos);
-        markersRef.current[node.node_id].setIcon(createIcon(node.is_online));
+        markersRef.current[node.node_id].setIcon(createIcon(node.is_online, isTracked));
         markersRef.current[node.node_id].setPopupContent(popup);
       } else {
-        const marker = L.marker(pos, { icon: createIcon(node.is_online) })
+        const marker = L.marker(pos, { icon: createIcon(node.is_online, isTracked) })
           .bindPopup(popup)
           .addTo(map);
         markersRef.current[node.node_id] = marker;
@@ -111,12 +127,14 @@ export default function Map({ nodes, trails }) {
     if (bounds.length > 0) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
-  }, [nodes]);
+  }, [nodes, trackedIds]);
 
   // Update trail polylines
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !trails) return;
+
+    const tracked = trackedIds || new Set();
 
     // Clear old trails
     for (const line of Object.values(trailsRef.current)) {
@@ -127,15 +145,16 @@ export default function Map({ nodes, trails }) {
     for (const [nodeId, positions] of Object.entries(trails)) {
       if (positions.length < 2) continue;
       const latlngs = positions.map((p) => [p.lat, p.lon]);
+      const isTracked = tracked.has(nodeId);
       const line = L.polyline(latlngs, {
-        color: "#818cf8",
-        weight: 2,
+        color: isTracked ? "#34d399" : "#818cf8",
+        weight: isTracked ? 3 : 2,
         opacity: 0.6,
         dashArray: "4 6",
       }).addTo(map);
       trailsRef.current[nodeId] = line;
     }
-  }, [trails]);
+  }, [trails, trackedIds]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

@@ -29,6 +29,7 @@ function batteryBar(level) {
 
 export default function Nodes() {
   const [nodes, setNodes] = useState([]);
+  const [filter, setFilter] = useState("all");
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function Nodes() {
           altitude: null,
           last_heard: new Date().toISOString(),
           is_online: true,
+          is_tracked: false,
         }];
       });
     }
@@ -79,13 +81,55 @@ export default function Nodes() {
 
   useWebSocket(handleEvent);
 
+  const toggleTracked = async (node) => {
+    const newVal = !node.is_tracked;
+    setNodes((prev) =>
+      prev.map((n) => (n.node_id === node.node_id ? { ...n, is_tracked: newVal } : n))
+    );
+    try {
+      await api.setTracked(node.node_id, newVal);
+    } catch {
+      setNodes((prev) =>
+        prev.map((n) => (n.node_id === node.node_id ? { ...n, is_tracked: !newVal } : n))
+      );
+    }
+  };
+
+  const trackedCount = nodes.filter((n) => n.is_tracked).length;
+  const displayNodes = filter === "tracked" ? nodes.filter((n) => n.is_tracked) : nodes;
+
   return (
     <div className="p-4 md:p-6">
-      <h1 className="text-xl font-bold text-zinc-100 mb-4">Nodes</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-zinc-100">Nodes</h1>
+        <div className="flex bg-zinc-800 rounded-lg p-0.5 text-sm">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1 rounded-md transition-colors ${
+              filter === "all"
+                ? "bg-indigo-600 text-white"
+                : "text-zinc-400 hover:text-zinc-100"
+            }`}
+          >
+            All ({nodes.length})
+          </button>
+          <button
+            onClick={() => setFilter("tracked")}
+            className={`px-3 py-1 rounded-md transition-colors ${
+              filter === "tracked"
+                ? "bg-emerald-600 text-white"
+                : "text-zinc-400 hover:text-zinc-100"
+            }`}
+          >
+            Tracked ({trackedCount})
+          </button>
+        </div>
+      </div>
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 text-left text-zinc-400">
+              <th className="px-3 py-3 font-medium w-10"></th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium hidden sm:table-cell">Hardware</th>
@@ -96,8 +140,25 @@ export default function Nodes() {
             </tr>
           </thead>
           <tbody>
-            {nodes.map((node) => (
+            {displayNodes.map((node) => (
               <tr key={node.node_id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                <td className="px-3 py-3">
+                  <button
+                    onClick={() => toggleTracked(node)}
+                    className="text-lg leading-none hover:scale-110 transition-transform"
+                    title={node.is_tracked ? "Untrack node" : "Track node"}
+                  >
+                    {node.is_tracked ? (
+                      <svg className="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-zinc-600 hover:text-zinc-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                    )}
+                  </button>
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block w-2.5 h-2.5 rounded-full ${
@@ -132,10 +193,10 @@ export default function Nodes() {
                 </td>
               </tr>
             ))}
-            {nodes.length === 0 && (
+            {displayNodes.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
-                  No nodes discovered yet
+                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
+                  {filter === "tracked" ? "No tracked nodes — star nodes to track them" : "No nodes discovered yet"}
                 </td>
               </tr>
             )}

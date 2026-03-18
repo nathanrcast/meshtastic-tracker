@@ -46,9 +46,12 @@ def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str) 
     return msg
 
 
-def list_nodes(db: Session) -> list[dict]:
+def list_nodes(db: Session, tracked_only: bool = False) -> list[dict]:
     mark_stale_nodes(db)
-    nodes = db.query(Node).order_by(Node.is_online.desc(), Node.last_heard.desc()).all()
+    query = db.query(Node)
+    if tracked_only:
+        query = query.filter(Node.is_tracked == 1)
+    nodes = query.order_by(Node.is_online.desc(), Node.last_heard.desc()).all()
     return [
         {
             "node_id": n.node_id,
@@ -63,9 +66,19 @@ def list_nodes(db: Session) -> list[dict]:
             "altitude": n.altitude,
             "last_heard": n.last_heard.isoformat() if n.last_heard else None,
             "is_online": bool(n.is_online),
+            "is_tracked": bool(n.is_tracked),
         }
         for n in nodes
     ]
+
+
+def set_node_tracked(db: Session, node_id: str, tracked: bool) -> Node | None:
+    node = db.query(Node).filter(Node.node_id == node_id).first()
+    if not node:
+        return None
+    node.is_tracked = 1 if tracked else 0
+    db.commit()
+    return node
 
 
 def get_node_positions(db: Session, node_id: str, hours: int = 24) -> list[dict]:
