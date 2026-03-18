@@ -1,0 +1,19 @@
+services:
+  meshtastic-web:
+    build: .
+    ports:
+      - "8200:8000"
+    env_file: .env
+    volumes:
+      - meshtastic_data:/app/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/__pycache__
+      - /app/src/__pycache__
+
+volumes:
+  meshtastic_data:

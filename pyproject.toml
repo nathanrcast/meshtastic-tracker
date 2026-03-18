@@ -1,0 +1,11 @@
+[project]
+name = "meshtastic-web"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "sqlalchemy>=2.0.0",
+    "meshtastic>=2.5.0",
+    "python-dotenv>=1.0.0",
+]
