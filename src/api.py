@@ -107,6 +107,18 @@ def api_send_message(body: SendMessage):
         raise HTTPException(status_code=503, detail=str(e))
 
 
+@app.post("/api/disconnect")
+def api_disconnect():
+    mesh.disconnect()
+    return {"ok": True}
+
+
+@app.post("/api/reconnect")
+def api_reconnect():
+    mesh.reconnect()
+    return {"ok": True}
+
+
 @app.get("/api/health")
 def api_health():
     db = SessionLocal()

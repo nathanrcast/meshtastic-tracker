@@ -80,11 +80,18 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {messages.map((msg) => (
               <div key={msg.id} className="text-sm">
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 flex-wrap">
                   <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-indigo-400"}`}>
                     {msg.from_name || msg.from_id}
                   </span>
                   <span className="text-zinc-600 text-xs">{formatTime(msg.timestamp)}</span>
+                  {(msg.snr != null || msg.rssi != null) && (
+                    <span className="text-zinc-500 text-xs">
+                      {msg.snr != null && `${msg.snr} dB`}
+                      {msg.snr != null && msg.rssi != null && " / "}
+                      {msg.rssi != null && `${msg.rssi} dBm`}
+                    </span>
+                  )}
                 </div>
                 <p className="text-zinc-300 break-words">{msg.text}</p>
               </div>

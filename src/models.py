@@ -47,4 +47,6 @@ class Message(Base):
     to_id = Column(String(20), default="")
     channel = Column(Integer, default=0)
     text = Column(Text, default="")
+    snr = Column(Float, nullable=True)
+    rssi = Column(Integer, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

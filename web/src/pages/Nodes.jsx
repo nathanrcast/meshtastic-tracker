@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, utc, useWebSocket } from "../api";
 
 function timeAgo(iso) {
@@ -30,6 +30,8 @@ function batteryBar(level) {
 export default function Nodes() {
   const [nodes, setNodes] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("status");
+  const [sortDir, setSortDir] = useState("desc");
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -96,7 +98,73 @@ export default function Nodes() {
   };
 
   const trackedCount = nodes.filter((n) => n.is_tracked).length;
-  const displayNodes = filter === "tracked" ? nodes.filter((n) => n.is_tracked) : nodes;
+  const filtered = filter === "tracked" ? nodes.filter((n) => n.is_tracked) : nodes;
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const displayNodes = useMemo(() => {
+    const cmp = (a, b) => {
+      const dir = sortDir === "desc" ? -1 : 1;
+      switch (sortKey) {
+        case "status": {
+          const av = a.is_online ? 1 : 0;
+          const bv = b.is_online ? 1 : 0;
+          return (av - bv) * dir;
+        }
+        case "name": {
+          const an = (a.long_name || a.node_id).toLowerCase();
+          const bn = (b.long_name || b.node_id).toLowerCase();
+          return an < bn ? dir : an > bn ? -dir : 0;
+        }
+        case "hardware": {
+          const ah = (a.hardware_model || "").toLowerCase();
+          const bh = (b.hardware_model || "").toLowerCase();
+          return ah < bh ? dir : ah > bh ? -dir : 0;
+        }
+        case "battery": {
+          const an = a.battery_level;
+          const bn = b.battery_level;
+          if (an == null && bn == null) return 0;
+          if (an == null) return 1;
+          if (bn == null) return -1;
+          return (an - bn) * dir;
+        }
+        case "snr": {
+          const an = a.snr;
+          const bn = b.snr;
+          if (an == null && bn == null) return 0;
+          if (an == null) return 1;
+          if (bn == null) return -1;
+          return (an - bn) * dir;
+        }
+        case "position": {
+          const ap = a.lat != null && a.lon != null ? 1 : 0;
+          const bp = b.lat != null && b.lon != null ? 1 : 0;
+          if (ap !== bp) return (ap - bp) * dir;
+          if (ap && bp) return ((a.lat || 0) - (b.lat || 0)) * dir;
+          return 0;
+        }
+        case "last_heard": {
+          const at = a.last_heard ? new Date(a.last_heard).getTime() : 0;
+          const bt = b.last_heard ? new Date(b.last_heard).getTime() : 0;
+          if (!at && !bt) return 0;
+          if (!at) return 1;
+          if (!bt) return -1;
+          return (at - bt) * dir;
+        }
+        default:
+          return 0;
+      }
+    };
+    return [...filtered].sort(cmp);
+  }, [filtered, sortKey, sortDir]);
 
   return (
     <div className="p-4 md:p-6">
@@ -130,13 +198,26 @@ export default function Nodes() {
           <thead>
             <tr className="border-b border-zinc-800 text-left text-zinc-400">
               <th className="px-3 py-3 font-medium w-10"></th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium hidden sm:table-cell">Hardware</th>
-              <th className="px-4 py-3 font-medium hidden md:table-cell">Battery</th>
-              <th className="px-4 py-3 font-medium hidden md:table-cell">SNR</th>
-              <th className="px-4 py-3 font-medium hidden lg:table-cell">Position</th>
-              <th className="px-4 py-3 font-medium">Last Heard</th>
+              {[
+                { key: "status", label: "Status", className: "" },
+                { key: "name", label: "Name", className: "" },
+                { key: "hardware", label: "Hardware", className: "hidden sm:table-cell" },
+                { key: "battery", label: "Battery", className: "hidden md:table-cell" },
+                { key: "snr", label: "SNR", className: "hidden md:table-cell" },
+                { key: "position", label: "Position", className: "hidden lg:table-cell" },
+                { key: "last_heard", label: "Last Heard", className: "" },
+              ].map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-zinc-200 transition-colors ${col.className}`}
+                >
+                  {col.label}
+                  {sortKey === col.key && (
+                    <span className="ml-1 text-indigo-400">{sortDir === "desc" ? "▼" : "▲"}</span>
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>

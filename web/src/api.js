@@ -37,6 +37,8 @@ export const api = {
     }),
   channels: () => fetchJSON("/channels"),
   health: () => fetchJSON("/health"),
+  disconnect: () => fetchJSON("/disconnect", { method: "POST" }),
+  reconnect: () => fetchJSON("/reconnect", { method: "POST" }),
 };
 
 export function useWebSocket(onEvent) {

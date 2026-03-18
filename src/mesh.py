@@ -19,6 +19,7 @@ class MeshtasticManager:
         self._ws_callbacks: list = []
         self._lock = threading.Lock()
         self._running = False
+        self._auto_reconnect = True
 
     @property
     def connected(self) -> bool:
@@ -161,6 +162,8 @@ class MeshtasticManager:
             to_id = packet.get("toId", "")
             channel = packet.get("channel", 0)
             text = packet.get("decoded", {}).get("text", "")
+            snr = packet.get("rxSnr")
+            rssi = packet.get("rxRssi")
 
             if not text:
                 return
@@ -169,7 +172,7 @@ class MeshtasticManager:
 
             db = SessionLocal()
             try:
-                msg = add_message(db, from_id, to_id, channel, text)
+                msg = add_message(db, from_id, to_id, channel, text, snr=snr, rssi=rssi)
                 node = db.query(Node).filter_by(node_id=from_id).first()
                 from_name = node.long_name if node else None
             finally:
@@ -183,6 +186,8 @@ class MeshtasticManager:
                 "to_id": to_id,
                 "channel": channel,
                 "text": text,
+                "snr": snr,
+                "rssi": rssi,
                 "timestamp": msg.timestamp.isoformat(),
             })
         except Exception:
@@ -242,9 +247,25 @@ class MeshtasticManager:
                 "timestamp": msg.timestamp.isoformat(),
             })
 
+    def disconnect(self):
+        self._auto_reconnect = False
+        if self._interface:
+            try:
+                self._interface.close()
+            except Exception:
+                pass
+            self._interface = None
+        self._connected = False
+        log.info("Manually disconnected from Meshtastic")
+
+    def reconnect(self):
+        self._auto_reconnect = True
+        if not self._connected:
+            self._connect()
+
     def _reconnect_loop(self):
         while self._running:
-            if not self._connected:
+            if not self._connected and self._auto_reconnect:
                 self._connect()
             time.sleep(RECONNECT_INTERVAL)
 

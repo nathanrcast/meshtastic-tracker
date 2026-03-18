@@ -10,6 +10,7 @@ const links = [
 export default function Layout() {
   const [health, setHealth] = useState(null);
   const [open, setOpen] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     const poll = () => api.health().then(setHealth).catch(() => {});
@@ -19,6 +20,22 @@ export default function Layout() {
   }, []);
 
   const closeMenu = () => setOpen(false);
+
+  const toggleConnection = async () => {
+    if (toggling) return;
+    setToggling(true);
+    try {
+      if (health?.connected) {
+        await api.disconnect();
+      } else {
+        await api.reconnect();
+      }
+      await new Promise((r) => setTimeout(r, 500));
+      const h = await api.health();
+      setHealth(h);
+    } catch {}
+    setToggling(false);
+  };
 
   const navContent = (
     <>
@@ -51,9 +68,25 @@ export default function Layout() {
               health?.connected ? "bg-emerald-500" : "bg-red-500"
             }`}
           />
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-zinc-400 flex-1">
             {health?.connected ? "Connected" : "Disconnected"}
           </span>
+          <button
+            onClick={toggleConnection}
+            disabled={toggling}
+            className="text-zinc-500 hover:text-zinc-200 disabled:opacity-50 transition-colors"
+            title={health?.connected ? "Disconnect" : "Reconnect"}
+          >
+            {health?.connected ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            )}
+          </button>
         </div>
         {health && (
           <p className="text-xs text-zinc-500 px-3">
@@ -81,6 +114,22 @@ export default function Layout() {
           </svg>
         </button>
         <span className="font-bold flex-1">Meshtastic</span>
+        <button
+          onClick={toggleConnection}
+          disabled={toggling}
+          className="mr-2 text-zinc-400 hover:text-zinc-100 disabled:opacity-50"
+          title={health?.connected ? "Disconnect" : "Reconnect"}
+        >
+          {health?.connected ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          )}
+        </button>
         <span
           className={`inline-block w-2 h-2 rounded-full ${
             health?.connected ? "bg-emerald-500" : "bg-red-500"

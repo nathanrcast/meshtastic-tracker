@@ -33,12 +33,14 @@ def update_node_position(db: Session, node_id: str, lat: float, lon: float, alti
     db.commit()
 
 
-def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str) -> Message:
+def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, snr: float | None = None, rssi: int | None = None) -> Message:
     msg = Message(
         from_id=from_id,
         to_id=to_id,
         channel=channel,
         text=text,
+        snr=snr,
+        rssi=rssi,
         timestamp=datetime.now(timezone.utc),
     )
     db.add(msg)
@@ -121,6 +123,8 @@ def list_messages(db: Session, channel: int = 0, limit: int = 100) -> list[dict]
             "to_id": m.to_id,
             "channel": m.channel,
             "text": m.text,
+            "snr": m.snr,
+            "rssi": m.rssi,
             "timestamp": m.timestamp.isoformat(),
         })
     return result
