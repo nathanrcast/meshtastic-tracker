@@ -134,7 +134,7 @@ export default function MapView() {
         <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
 
         {/* Filter toggle */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg p-0.5 text-sm shadow-lg">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg p-0.5 text-sm shadow-lg animate-fade-in">
           <button
             onClick={() => setFilter("tracked")}
             className={`px-3 py-1.5 rounded-md transition-colors ${
@@ -149,7 +149,7 @@ export default function MapView() {
             onClick={() => setFilter("all")}
             className={`px-3 py-1.5 rounded-md transition-colors ${
               filter === "all"
-                ? "bg-indigo-600 text-white"
+                ? "bg-mesh-600 text-white"
                 : "text-zinc-400 hover:text-zinc-100"
             }`}
           >

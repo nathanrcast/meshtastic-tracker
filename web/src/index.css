@@ -2,10 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --mesh-glow: 0 0 12px rgba(6, 182, 212, 0.3);
+}
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+/* Mesh grid background utility */
+.bg-mesh-grid {
+  background-image:
+    linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Staggered fade-in for child elements */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 30ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 90ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 210ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 270ms; }
+.stagger-children > *:nth-child(11) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(12) { animation-delay: 330ms; }
+.stagger-children > *:nth-child(13) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(14) { animation-delay: 390ms; }
+.stagger-children > *:nth-child(15) { animation-delay: 420ms; }
+.stagger-children > *:nth-child(n+16) { animation-delay: 450ms; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 /* Leaflet dark theme overrides */
 .leaflet-container {
@@ -17,6 +62,7 @@
   color: #e4e4e7;
   border-radius: 0.75rem;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(6, 182, 212, 0.15);
 }
 
 .leaflet-popup-tip {
@@ -47,5 +93,5 @@
 }
 
 .leaflet-control-attribution a {
-  color: #818cf8 !important;
+  color: #22d3ee !important;
 }

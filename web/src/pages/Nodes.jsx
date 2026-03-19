@@ -22,7 +22,7 @@ function batteryBar(level) {
       <div className="w-16 h-2 bg-zinc-700 rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${level}%` }} />
       </div>
-      <span className="text-xs text-zinc-400">{level}%</span>
+      <span className="text-xs text-zinc-400 font-mono">{level}%</span>
     </div>
   );
 }
@@ -169,13 +169,13 @@ export default function Nodes() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-zinc-100">Nodes</h1>
+        <h1 className="text-xl font-bold text-zinc-100 font-mono tracking-tight">Nodes</h1>
         <div className="flex bg-zinc-800 rounded-lg p-0.5 text-sm">
           <button
             onClick={() => setFilter("all")}
             className={`px-3 py-1 rounded-md transition-colors ${
               filter === "all"
-                ? "bg-indigo-600 text-white"
+                ? "bg-mesh-600 text-white"
                 : "text-zinc-400 hover:text-zinc-100"
             }`}
           >
@@ -193,7 +193,7 @@ export default function Nodes() {
           </button>
         </div>
       </div>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg shadow-black/20">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 text-left text-zinc-400">
@@ -214,13 +214,13 @@ export default function Nodes() {
                 >
                   {col.label}
                   {sortKey === col.key && (
-                    <span className="ml-1 text-indigo-400">{sortDir === "desc" ? "▼" : "▲"}</span>
+                    <span className="ml-1 text-mesh-400">{sortDir === "desc" ? "▼" : "▲"}</span>
                   )}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="stagger-children">
             {displayNodes.map((node) => (
               <tr key={node.node_id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                 <td className="px-3 py-3">
@@ -243,7 +243,7 @@ export default function Nodes() {
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block w-2.5 h-2.5 rounded-full ${
-                      node.is_online ? "bg-emerald-500" : "bg-zinc-600"
+                      node.is_online ? "bg-emerald-500 animate-pulse-slow" : "bg-zinc-600"
                     }`}
                   />
                 </td>
@@ -261,15 +261,15 @@ export default function Nodes() {
                 <td className="px-4 py-3 hidden md:table-cell">
                   {batteryBar(node.battery_level) || <span className="text-zinc-600">—</span>}
                 </td>
-                <td className="px-4 py-3 text-zinc-400 hidden md:table-cell">
+                <td className="px-4 py-3 text-zinc-400 hidden md:table-cell font-mono">
                   {node.snr != null ? `${node.snr} dB` : "—"}
                 </td>
-                <td className="px-4 py-3 text-zinc-400 text-xs hidden lg:table-cell">
+                <td className="px-4 py-3 text-zinc-400 text-xs hidden lg:table-cell font-mono">
                   {node.lat != null && node.lon != null
                     ? `${node.lat.toFixed(4)}, ${node.lon.toFixed(4)}`
                     : "—"}
                 </td>
-                <td className="px-4 py-3 text-zinc-500 text-xs">
+                <td className="px-4 py-3 text-zinc-500 text-xs font-mono">
                   {timeAgo(node.last_heard)}
                 </td>
               </tr>

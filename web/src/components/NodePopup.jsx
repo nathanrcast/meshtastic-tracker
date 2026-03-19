@@ -20,13 +20,13 @@ function timeAgo(iso) {
 export default function NodePopup({ node }) {
   return (
     <div className="text-sm min-w-[160px]">
-      <div className="font-semibold text-zinc-100">
+      <div className="font-semibold text-zinc-100 font-mono">
         {node.long_name || node.short_name || node.node_id}
       </div>
       {node.short_name && (
         <div className="text-zinc-400 text-xs">{node.short_name}</div>
       )}
-      <div className="mt-2 space-y-1 text-xs">
+      <div className="mt-2 space-y-1 text-xs font-mono">
         {node.battery_level != null && (
           <div className={batteryColor(node.battery_level)}>
             Battery: {node.battery_level}%

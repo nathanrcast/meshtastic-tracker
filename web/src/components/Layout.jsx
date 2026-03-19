@@ -39,7 +39,7 @@ export default function Layout() {
 
   const navContent = (
     <>
-      <h1 className="text-lg font-bold mb-1 text-zinc-100">Meshtastic</h1>
+      <h1 className="text-lg font-bold mb-1 text-zinc-100 font-mono tracking-tight">Meshtastic</h1>
       <p className="text-xs text-zinc-500 mb-6">Mesh Network</p>
       <ul className="space-y-1 flex-1">
         {links.map((l) => (
@@ -51,8 +51,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `block px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
                   isActive
-                    ? "bg-indigo-600 text-white"
-                    : "text-zinc-300 hover:bg-zinc-800"
+                    ? "bg-mesh-600 text-white"
+                    : "text-zinc-300 hover:bg-zinc-800 hover:text-mesh-300"
                 }`
               }
             >
@@ -65,7 +65,7 @@ export default function Layout() {
         <div className="flex items-center gap-2 px-3 py-2">
           <span
             className={`inline-block w-2 h-2 rounded-full ${
-              health?.connected ? "bg-emerald-500" : "bg-red-500"
+              health?.connected ? "bg-emerald-500 animate-pulse-slow" : "bg-red-500"
             }`}
           />
           <span className="text-xs text-zinc-400 flex-1">
@@ -74,7 +74,7 @@ export default function Layout() {
           <button
             onClick={toggleConnection}
             disabled={toggling}
-            className="text-zinc-500 hover:text-zinc-200 disabled:opacity-50 transition-colors"
+            className="text-zinc-500 hover:text-mesh-300 disabled:opacity-50 transition-colors"
             title={health?.connected ? "Disconnect" : "Reconnect"}
           >
             {health?.connected ? (
@@ -89,7 +89,7 @@ export default function Layout() {
           </button>
         </div>
         {health && (
-          <p className="text-xs text-zinc-500 px-3">
+          <p className="text-xs text-zinc-500 px-3 font-mono">
             {health.node_count} nodes &middot; {health.message_count} msgs
           </p>
         )}
@@ -99,7 +99,7 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="hidden md:flex md:w-56 bg-zinc-900 border-r border-zinc-800 text-zinc-100 p-4 flex-shrink-0 flex-col">
+      <nav className="hidden md:flex md:w-56 bg-zinc-900 bg-mesh-grid border-r border-zinc-800 text-zinc-100 p-4 flex-shrink-0 flex-col">
         {navContent}
       </nav>
 
@@ -113,11 +113,11 @@ export default function Layout() {
             )}
           </svg>
         </button>
-        <span className="font-bold flex-1">Meshtastic</span>
+        <span className="font-bold flex-1 font-mono tracking-tight">Meshtastic</span>
         <button
           onClick={toggleConnection}
           disabled={toggling}
-          className="mr-2 text-zinc-400 hover:text-zinc-100 disabled:opacity-50"
+          className="mr-2 text-zinc-400 hover:text-mesh-300 disabled:opacity-50"
           title={health?.connected ? "Disconnect" : "Reconnect"}
         >
           {health?.connected ? (
@@ -132,7 +132,7 @@ export default function Layout() {
         </button>
         <span
           className={`inline-block w-2 h-2 rounded-full ${
-            health?.connected ? "bg-emerald-500" : "bg-red-500"
+            health?.connected ? "bg-emerald-500 animate-pulse-slow" : "bg-red-500"
           }`}
         />
       </div>
@@ -140,7 +140,7 @@ export default function Layout() {
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={closeMenu} />
-          <nav className="fixed top-0 left-0 bottom-0 z-50 w-64 bg-zinc-900 border-r border-zinc-800 text-zinc-100 p-4 flex flex-col md:hidden">
+          <nav className="fixed top-0 left-0 bottom-0 z-50 w-64 bg-zinc-900 bg-mesh-grid border-r border-zinc-800 text-zinc-100 p-4 flex flex-col md:hidden">
             {navContent}
           </nav>
         </>

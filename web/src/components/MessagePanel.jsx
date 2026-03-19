@@ -66,7 +66,7 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                     onClick={() => onChannelChange(ch.index)}
                     className={`px-2 py-0.5 rounded-full text-xs whitespace-nowrap transition-colors ${
                       selectedChannel === ch.index
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-mesh-600 text-white"
                         : "bg-zinc-800 text-zinc-400 hover:text-zinc-100"
                     }`}
                   >
@@ -81,12 +81,12 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
             {messages.map((msg) => (
               <div key={msg.id} className="text-sm">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-indigo-400"}`}>
+                  <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-mesh-400"}`}>
                     {msg.from_name || msg.from_id}
                   </span>
-                  <span className="text-zinc-600 text-xs">{formatTime(msg.timestamp)}</span>
+                  <span className="text-zinc-600 text-xs font-mono">{formatTime(msg.timestamp)}</span>
                   {(msg.snr != null || msg.rssi != null) && (
-                    <span className="text-zinc-500 text-xs">
+                    <span className="text-zinc-500 text-xs font-mono">
                       {msg.snr != null && `${msg.snr} dB`}
                       {msg.snr != null && msg.rssi != null && " / "}
                       {msg.rssi != null && `${msg.rssi} dBm`}
@@ -106,12 +106,12 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
               onChange={(e) => setText(e.target.value)}
               placeholder="Send message..."
               maxLength={228}
-              className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none transition-colors duration-150"
+              className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-3 py-2 text-sm focus:border-mesh-500 focus:outline-none transition-colors duration-150"
             />
             <button
               type="submit"
               disabled={!text.trim() || sending}
-              className="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+              className="bg-mesh-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-mesh-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
             >
               Send
             </button>

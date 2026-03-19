@@ -6,9 +6,28 @@ const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
 const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
+const MONO_FONT = "'JetBrains Mono', monospace";
+
 function createIcon(online, tracked) {
   if (tracked) {
     const color = online ? "#34d399" : "#065f46";
+    if (online) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r="18" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.2">
+          <animate attributeName="r" values="10;18" dur="2s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.4;0" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="20" cy="20" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
+        <circle cx="20" cy="20" r="10" fill="${color}" stroke="#18181b" stroke-width="2"/>
+      </svg>`;
+      return L.divIcon({
+        html: svg,
+        className: "",
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -20],
+      });
+    }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
       <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
       <circle cx="16" cy="16" r="10" fill="${color}" stroke="#18181b" stroke-width="2"/>
@@ -21,7 +40,24 @@ function createIcon(online, tracked) {
       popupAnchor: [0, -16],
     });
   }
-  const color = online ? "#818cf8" : "#52525b";
+
+  const color = online ? "#22d3ee" : "#52525b";
+  if (online) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="1" opacity="0.15">
+        <animate attributeName="r" values="8;14" dur="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.3;0" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="16" cy="16" r="8" fill="${color}" stroke="#18181b" stroke-width="2"/>
+    </svg>`;
+    return L.divIcon({
+      html: svg,
+      className: "",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16],
+    });
+  }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8" fill="${color}" stroke="#18181b" stroke-width="2"/>
   </svg>`;
@@ -92,9 +128,9 @@ export default function Map({ nodes, trails, trackedIds }) {
 
       const popup = `
         <div class="text-sm min-w-[160px]">
-          <div class="font-semibold text-zinc-100">${node.long_name || node.short_name || node.node_id}</div>
+          <div class="font-semibold text-zinc-100" style="font-family: ${MONO_FONT}">${node.long_name || node.short_name || node.node_id}</div>
           ${node.short_name ? `<div class="text-zinc-400 text-xs">${node.short_name}</div>` : ""}
-          <div class="mt-2 space-y-1 text-xs">
+          <div class="mt-2 space-y-1 text-xs" style="font-family: ${MONO_FONT}">
             ${node.battery_level != null ? `<div class="${batteryColor(node.battery_level)}">Battery: ${node.battery_level}%</div>` : ""}
             ${node.altitude != null ? `<div class="text-zinc-400">Alt: ${node.altitude}m</div>` : ""}
             ${node.snr != null ? `<div class="text-zinc-400">SNR: ${node.snr} dB</div>` : ""}
@@ -147,7 +183,7 @@ export default function Map({ nodes, trails, trackedIds }) {
       const latlngs = positions.map((p) => [p.lat, p.lon]);
       const isTracked = tracked.has(nodeId);
       const line = L.polyline(latlngs, {
-        color: isTracked ? "#34d399" : "#818cf8",
+        color: isTracked ? "#34d399" : "#22d3ee",
         weight: isTracked ? 3 : 2,
         opacity: 0.6,
         dashArray: "4 6",
