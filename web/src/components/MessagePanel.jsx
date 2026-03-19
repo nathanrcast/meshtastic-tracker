@@ -21,12 +21,21 @@ function saveHiddenChannels(set) {
   localStorage.setItem(HIDDEN_CHANNELS_KEY, JSON.stringify([...set]));
 }
 
+const EMOJI_GROUPS = [
+  { label: "Smileys", emojis: ["😀", "😂", "🤣", "😊", "😎", "🤔", "😅", "😢", "😡", "🥳", "😴", "🤯"] },
+  { label: "Hands", emojis: ["👍", "👎", "👋", "🤝", "✌️", "🤙", "👏", "🙏", "💪", "🫡", "✋", "🤞"] },
+  { label: "Symbols", emojis: ["❤️", "🔥", "⚡", "✅", "❌", "⚠️", "📍", "🎯", "💬", "📡", "🛰️", "📻"] },
+  { label: "Nature", emojis: ["🌧️", "☀️", "🌙", "⛰️", "🌊", "🏕️", "🌲", "🐻", "🦌", "🐍", "🦅", "🐺"] },
+];
+
 export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenChannels, setHiddenChannels] = useState(loadHiddenChannels);
+  const [showEmoji, setShowEmoji] = useState(false);
   const bottomRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,19 +43,54 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
   const send = async (e) => {
     e.preventDefault();
-    if (!text.trim() || sending) return;
+    const msg = text.trim();
+    if (!msg || sending) return;
+
+    // Optimistic: clear input and add message immediately
+    setText("");
     setSending(true);
+    setShowEmoji(false);
+
+    const optimistic = {
+      id: `pending-${Date.now()}`,
+      from_id: "local",
+      from_name: "You",
+      to_id: "^all",
+      channel: selectedChannel,
+      text: msg,
+      snr: null,
+      rssi: null,
+      timestamp: new Date().toISOString(),
+    };
+    if (onMessageSent) onMessageSent(optimistic);
+
     try {
-      const msg = await api.sendMessage(text.trim(), selectedChannel);
-      setText("");
-      if (onMessageSent && msg?.id) {
-        onMessageSent(msg);
+      const real = await api.sendMessage(msg, selectedChannel);
+      if (onMessageSent && real?.id) {
+        onMessageSent(real);
       }
     } catch (err) {
       console.error("Send failed:", err);
     } finally {
       setSending(false);
     }
+  };
+
+  const insertEmoji = (emoji) => {
+    const input = inputRef.current;
+    if (!input) {
+      setText((prev) => prev + emoji);
+      return;
+    }
+    const start = input.selectionStart ?? text.length;
+    const end = input.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    setText(next);
+    requestAnimationFrame(() => {
+      const pos = start + emoji.length;
+      input.setSelectionRange(pos, pos);
+      input.focus();
+    });
   };
 
   const hideChannel = (index) => {
@@ -157,8 +201,39 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
             <div ref={bottomRef} />
           </div>
 
-          <form onSubmit={send} className="p-3 border-t border-mesh-800/30 flex gap-2">
+          {/* Emoji picker */}
+          {showEmoji && (
+            <div className="border-t border-zinc-700 px-2 py-2 max-h-48 overflow-y-auto">
+              {EMOJI_GROUPS.map((group) => (
+                <div key={group.label} className="mb-2">
+                  <p className="text-xs text-zinc-500 font-mono mb-1">{group.label}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {group.emojis.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => insertEmoji(e)}
+                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-zinc-700 transition-colors text-base"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={send} className="p-3 border-t border-mesh-800/30 flex gap-2 items-center">
+            <button
+              type="button"
+              onClick={() => setShowEmoji(!showEmoji)}
+              className={`text-lg leading-none transition-colors ${showEmoji ? "text-mesh-400" : "text-zinc-500 hover:text-zinc-300"}`}
+              title="Emoji"
+            >
+              😊
+            </button>
             <input
+              ref={inputRef}
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
