@@ -46,7 +46,6 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     const msg = text.trim();
     if (!msg || sending) return;
 
-    // Optimistic: clear input and add message immediately
     setText("");
     setSending(true);
     setShowEmoji(false);
@@ -114,13 +113,13 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
   return (
     <div
-      className={`bg-zinc-800 border-l border-mesh-800/40 flex flex-col transition-all duration-200 ${
+      className={`bg-th-surface border-l border-th-accent-border/40 flex flex-col transition-all duration-200 ${
         collapsed ? "w-10" : "w-80"
       }`}
     >
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="p-2 text-zinc-400 hover:text-mesh-300 border-b border-zinc-700 flex items-center justify-center"
+        className="p-2 text-th-dim hover:text-th-accent-light border-b border-th-border flex items-center justify-center"
       >
         {collapsed ? (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,10 +134,10 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
       {!collapsed && (
         <>
-          <div className="px-3 py-2 border-b border-zinc-700">
-            <h2 className="text-sm font-semibold text-zinc-100 font-mono">Messages</h2>
+          <div className="px-3 py-2 border-b border-th-border">
+            <h2 className="text-sm font-semibold text-th-text font-mono">Messages</h2>
             {visibleChannels.length <= 1 && !hasHidden ? (
-              <p className="text-xs text-zinc-500 font-mono">{visibleChannels[0]?.name || "primary"}</p>
+              <p className="text-xs text-th-muted font-mono">{visibleChannels[0]?.name || "primary"}</p>
             ) : (
               <div className="flex flex-wrap gap-1 mt-1">
                 {visibleChannels.map((ch) => (
@@ -147,8 +146,8 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                       onClick={() => onChannelChange(ch.index)}
                       className={`px-2 py-0.5 rounded-l text-xs font-mono transition-colors ${
                         selectedChannel === ch.index
-                          ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
-                          : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                          ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                          : "bg-th-elevated text-th-dim hover:text-th-text"
                       }`}
                     >
                       {ch.name}
@@ -157,8 +156,8 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                       onClick={() => hideChannel(ch.index)}
                       className={`px-1 py-0.5 rounded-r text-xs transition-colors opacity-0 group-hover:opacity-100 ${
                         selectedChannel === ch.index
-                          ? "bg-mesh-950/50 text-zinc-500 hover:text-red-400 ring-1 ring-mesh-700"
-                          : "bg-zinc-900 text-zinc-600 hover:text-red-400"
+                          ? "bg-th-accent-bg/50 text-th-muted hover:text-red-400 ring-1 ring-th-accent-border"
+                          : "bg-th-elevated text-th-faint hover:text-red-400"
                       }`}
                       title="Hide channel"
                     >
@@ -169,7 +168,7 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                 {hasHidden && (
                   <button
                     onClick={showAllChannels}
-                    className="px-2 py-0.5 rounded text-xs font-mono text-zinc-500 hover:text-mesh-300 transition-colors"
+                    className="px-2 py-0.5 rounded text-xs font-mono text-th-muted hover:text-th-accent-light transition-colors"
                     title="Show all hidden channels"
                   >
                     +{hiddenChannels.size}
@@ -183,36 +182,35 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
             {messages.map((msg) => (
               <div key={msg.id} className="text-sm">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-mesh-400"}`}>
+                  <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-th-accent"}`}>
                     {msg.from_name || msg.from_id}
                   </span>
-                  <span className="text-zinc-600 text-xs font-mono">{formatTime(msg.timestamp)}</span>
+                  <span className="text-th-faint text-xs font-mono">{formatTime(msg.timestamp)}</span>
                   {(msg.snr != null || msg.rssi != null) && (
-                    <span className="text-zinc-500 text-xs font-mono">
+                    <span className="text-th-muted text-xs font-mono">
                       {msg.snr != null && `${msg.snr} dB`}
                       {msg.snr != null && msg.rssi != null && " / "}
                       {msg.rssi != null && `${msg.rssi} dBm`}
                     </span>
                   )}
                 </div>
-                <p className="text-zinc-300 break-words">{msg.text}</p>
+                <p className="text-th-body break-words">{msg.text}</p>
               </div>
             ))}
             <div ref={bottomRef} />
           </div>
 
-          {/* Emoji picker */}
           {showEmoji && (
-            <div className="border-t border-zinc-700 px-2 py-2 max-h-48 overflow-y-auto">
+            <div className="border-t border-th-border px-2 py-2 max-h-48 overflow-y-auto">
               {EMOJI_GROUPS.map((group) => (
                 <div key={group.label} className="mb-2">
-                  <p className="text-xs text-zinc-500 font-mono mb-1">{group.label}</p>
+                  <p className="text-xs text-th-muted font-mono mb-1">{group.label}</p>
                   <div className="flex flex-wrap gap-1">
                     {group.emojis.map((e) => (
                       <button
                         key={e}
                         onClick={() => insertEmoji(e)}
-                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-zinc-700 transition-colors text-base"
+                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-th-hover transition-colors text-base"
                       >
                         {e}
                       </button>
@@ -223,11 +221,11 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
             </div>
           )}
 
-          <form onSubmit={send} className="p-3 border-t border-mesh-800/30 flex gap-2 items-center">
+          <form onSubmit={send} className="p-3 border-t border-th-accent-border/30 flex gap-2 items-center">
             <button
               type="button"
               onClick={() => setShowEmoji(!showEmoji)}
-              className={`text-lg leading-none transition-colors ${showEmoji ? "text-mesh-400" : "text-zinc-500 hover:text-zinc-300"}`}
+              className={`text-lg leading-none transition-colors ${showEmoji ? "text-th-accent" : "text-th-muted hover:text-th-body"}`}
               title="Emoji"
             >
               😊
@@ -239,12 +237,12 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
               onChange={(e) => setText(e.target.value)}
               placeholder="message..."
               maxLength={228}
-              className="flex-1 bg-zinc-900 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm font-mono focus:border-mesh-500 focus:outline-none transition-colors duration-150 placeholder:text-zinc-600"
+              className="flex-1 bg-th-elevated border border-th-border-strong text-th-text rounded px-3 py-2 text-sm font-mono focus:border-th-accent focus:outline-none transition-colors duration-150 placeholder:text-th-faint"
             />
             <button
               type="submit"
               disabled={!text.trim() || sending}
-              className="border border-mesh-700 text-mesh-300 px-3 py-2 rounded text-sm font-mono hover:bg-mesh-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+              className="border border-th-accent-border text-th-accent-light px-3 py-2 rounded text-sm font-mono hover:bg-th-accent-bg/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
             >
               Send
             </button>

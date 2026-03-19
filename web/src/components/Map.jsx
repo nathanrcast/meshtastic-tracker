@@ -1,14 +1,19 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useTheme } from "../theme";
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILES = {
+  hacker: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  corporate: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+};
 const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
-const MONO_FONT = "'JetBrains Mono', monospace";
+function createIcon(online, tracked, isDark) {
+  const stroke = isDark ? "#18181b" : "#ffffff";
+  const accentColor = isDark ? "#22d3ee" : "#3b82f6";
 
-function createIcon(online, tracked) {
   if (tracked) {
     const color = online ? "#34d399" : "#065f46";
     if (online) {
@@ -18,60 +23,36 @@ function createIcon(online, tracked) {
           <animate attributeName="opacity" values="0.4;0" dur="2s" repeatCount="indefinite"/>
         </circle>
         <circle cx="20" cy="20" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
-        <circle cx="20" cy="20" r="10" fill="${color}" stroke="#18181b" stroke-width="2"/>
+        <circle cx="20" cy="20" r="10" fill="${color}" stroke="${stroke}" stroke-width="2"/>
       </svg>`;
-      return L.divIcon({
-        html: svg,
-        className: "",
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-        popupAnchor: [0, -20],
-      });
+      return L.divIcon({ html: svg, className: "", iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20] });
     }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
       <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
-      <circle cx="16" cy="16" r="10" fill="${color}" stroke="#18181b" stroke-width="2"/>
+      <circle cx="16" cy="16" r="10" fill="${color}" stroke="${stroke}" stroke-width="2"/>
     </svg>`;
-    return L.divIcon({
-      html: svg,
-      className: "",
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16],
-    });
+    return L.divIcon({ html: svg, className: "", iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16] });
   }
 
-  const color = online ? "#22d3ee" : "#52525b";
+  const color = online ? accentColor : "#52525b";
   if (online) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
       <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="1" opacity="0.15">
         <animate attributeName="r" values="8;14" dur="2.5s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values="0.3;0" dur="2.5s" repeatCount="indefinite"/>
       </circle>
-      <circle cx="16" cy="16" r="8" fill="${color}" stroke="#18181b" stroke-width="2"/>
+      <circle cx="16" cy="16" r="8" fill="${color}" stroke="${stroke}" stroke-width="2"/>
     </svg>`;
-    return L.divIcon({
-      html: svg,
-      className: "",
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16],
-    });
+    return L.divIcon({ html: svg, className: "", iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16] });
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" fill="${color}" stroke="#18181b" stroke-width="2"/>
+    <circle cx="12" cy="12" r="8" fill="${color}" stroke="${stroke}" stroke-width="2"/>
   </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: "",
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
-  });
+  return L.divIcon({ html: svg, className: "", iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
 }
 
 function batteryColor(level) {
-  if (level == null) return "text-zinc-500";
+  if (level == null) return "text-th-muted";
   if (level > 50) return "text-emerald-400";
   if (level > 20) return "text-amber-400";
   return "text-red-400";
@@ -87,28 +68,54 @@ function timeAgo(iso) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+function buildPopup(node) {
+  return `
+    <div class="text-sm min-w-[160px]">
+      <div class="font-semibold text-th-text" style="font-family: var(--t-font-data)">${node.long_name || node.short_name || node.node_id}</div>
+      ${node.short_name ? `<div class="text-th-dim text-xs">${node.short_name}</div>` : ""}
+      <div class="mt-2 space-y-1 text-xs" style="font-family: var(--t-font-data)">
+        ${node.battery_level != null ? `<div class="${batteryColor(node.battery_level)}">Battery: ${node.battery_level}%</div>` : ""}
+        ${node.altitude != null ? `<div class="text-th-dim">Alt: ${node.altitude}m</div>` : ""}
+        ${node.snr != null ? `<div class="text-th-dim">SNR: ${node.snr} dB</div>` : ""}
+        <div class="text-th-muted">${timeAgo(node.last_heard)}</div>
+      </div>
+    </div>
+  `;
+}
+
 export default function Map({ nodes, trails, trackedIds }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
+  const tileRef = useRef(null);
   const markersRef = useRef({});
   const trailsRef = useRef({});
+  const { theme } = useTheme();
+  const isDark = theme === "hacker";
 
   // Initialize map
   useEffect(() => {
     if (mapRef.current) return;
     const map = L.map(containerRef.current, {
-      center: [33.45, -112.07], // Phoenix default
+      center: [33.45, -112.07],
       zoom: 10,
       zoomControl: true,
     });
-    L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+    tileRef.current = L.tileLayer(TILES[theme] || TILES.hacker, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
+      tileRef.current = null;
     };
   }, []);
+
+  // Swap tiles on theme change
+  useEffect(() => {
+    if (!mapRef.current || !tileRef.current) return;
+    const url = TILES[theme] || TILES.hacker;
+    tileRef.current.setUrl(url);
+  }, [theme]);
 
   // Update markers
   useEffect(() => {
@@ -125,33 +132,20 @@ export default function Map({ nodes, trails, trackedIds }) {
       const pos = [node.lat, node.lon];
       bounds.push(pos);
       const isTracked = tracked.has(node.node_id);
-
-      const popup = `
-        <div class="text-sm min-w-[160px]">
-          <div class="font-semibold text-zinc-100" style="font-family: ${MONO_FONT}">${node.long_name || node.short_name || node.node_id}</div>
-          ${node.short_name ? `<div class="text-zinc-400 text-xs">${node.short_name}</div>` : ""}
-          <div class="mt-2 space-y-1 text-xs" style="font-family: ${MONO_FONT}">
-            ${node.battery_level != null ? `<div class="${batteryColor(node.battery_level)}">Battery: ${node.battery_level}%</div>` : ""}
-            ${node.altitude != null ? `<div class="text-zinc-400">Alt: ${node.altitude}m</div>` : ""}
-            ${node.snr != null ? `<div class="text-zinc-400">SNR: ${node.snr} dB</div>` : ""}
-            <div class="text-zinc-500">${timeAgo(node.last_heard)}</div>
-          </div>
-        </div>
-      `;
+      const popup = buildPopup(node);
 
       if (markersRef.current[node.node_id]) {
         markersRef.current[node.node_id].setLatLng(pos);
-        markersRef.current[node.node_id].setIcon(createIcon(node.is_online, isTracked));
+        markersRef.current[node.node_id].setIcon(createIcon(node.is_online, isTracked, isDark));
         markersRef.current[node.node_id].setPopupContent(popup);
       } else {
-        const marker = L.marker(pos, { icon: createIcon(node.is_online, isTracked) })
+        const marker = L.marker(pos, { icon: createIcon(node.is_online, isTracked, isDark) })
           .bindPopup(popup)
           .addTo(map);
         markersRef.current[node.node_id] = marker;
       }
     }
 
-    // Remove stale markers
     for (const id of Object.keys(markersRef.current)) {
       if (!currentIds.has(id)) {
         map.removeLayer(markersRef.current[id]);
@@ -159,11 +153,10 @@ export default function Map({ nodes, trails, trackedIds }) {
       }
     }
 
-    // Auto-fit bounds
     if (bounds.length > 0) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
-  }, [nodes, trackedIds]);
+  }, [nodes, trackedIds, isDark]);
 
   // Update trail polylines
   useEffect(() => {
@@ -171,8 +164,8 @@ export default function Map({ nodes, trails, trackedIds }) {
     if (!map || !trails) return;
 
     const tracked = trackedIds || new Set();
+    const accentColor = isDark ? "#22d3ee" : "#3b82f6";
 
-    // Clear old trails
     for (const line of Object.values(trailsRef.current)) {
       map.removeLayer(line);
     }
@@ -183,14 +176,14 @@ export default function Map({ nodes, trails, trackedIds }) {
       const latlngs = positions.map((p) => [p.lat, p.lon]);
       const isTracked = tracked.has(nodeId);
       const line = L.polyline(latlngs, {
-        color: isTracked ? "#34d399" : "#22d3ee",
+        color: isTracked ? "#34d399" : accentColor,
         weight: isTracked ? 3 : 2,
         opacity: 0.6,
         dashArray: "4 6",
       }).addTo(map);
       trailsRef.current[nodeId] = line;
     }
-  }, [trails, trackedIds]);
+  }, [trails, trackedIds, isDark]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

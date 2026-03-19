@@ -2,24 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ── Hacker theme (dark, cyan, mono) ─────────────────────── */
+[data-theme="hacker"] {
+  --t-base: 51 51 64;
+  --t-surface: 39 39 42;
+  --t-elevated: 24 24 27;
+  --t-hover: 63 63 70;
+  --t-text: 244 244 245;
+  --t-body: 212 212 216;
+  --t-dim: 161 161 170;
+  --t-muted: 113 113 122;
+  --t-faint: 82 82 91;
+  --t-border: 63 63 70;
+  --t-border-strong: 82 82 91;
+  --t-accent: 6 182 212;
+  --t-accent-light: 34 211 238;
+  --t-accent-dim: 14 116 144;
+  --t-accent-bg: 8 51 68;
+  --t-accent-border: 14 116 144;
+  --t-font-data: "JetBrains Mono", ui-monospace, monospace;
   --mesh-glow: 0 0 12px rgba(6, 182, 212, 0.3);
 }
 
+/* ── Modern theme (light, blue, clean) ───────────────────── */
+[data-theme="corporate"] {
+  --t-base: 248 250 252;
+  --t-surface: 255 255 255;
+  --t-elevated: 241 245 249;
+  --t-hover: 226 232 240;
+  --t-text: 15 23 42;
+  --t-body: 51 65 85;
+  --t-dim: 100 116 139;
+  --t-muted: 148 163 184;
+  --t-faint: 203 213 225;
+  --t-border: 226 232 240;
+  --t-border-strong: 203 213 225;
+  --t-accent: 59 130 246;
+  --t-accent-light: 96 165 250;
+  --t-accent-dim: 37 99 235;
+  --t-accent-bg: 239 246 255;
+  --t-accent-border: 147 197 253;
+  --t-font-data: "Inter", ui-sans-serif, sans-serif;
+  --mesh-glow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+/* ── Base styles ─────────────────────────────────────────── */
+body {
+  background-color: rgb(var(--t-base));
+  color: rgb(var(--t-text));
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #71717a; }
+::-webkit-scrollbar-thumb { background: rgb(var(--t-border-strong)); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--t-dim)); }
 
-/* Mesh grid background utility */
+/* ── Mesh grid (hacker only) ─────────────────────────────── */
 .bg-mesh-grid {
   background-image:
     linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
   background-size: 24px 24px;
 }
+[data-theme="corporate"] .bg-mesh-grid {
+  background-image: none;
+}
 
-/* Staggered fade-in for child elements */
+/* ── Staggered fade-in ───────────────────────────────────── */
 .stagger-children > * {
   opacity: 0;
   animation: fadeInUp 0.3s ease-out forwards;
@@ -42,57 +93,62 @@
 .stagger-children > *:nth-child(n+16) { animation-delay: 450ms; }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Leaflet dark theme overrides */
+/* ── Leaflet: Hacker theme ───────────────────────────────── */
 .leaflet-container {
-  background: #333340;
+  background: rgb(var(--t-base));
 }
 
-.leaflet-popup-content-wrapper {
+[data-theme="hacker"] .leaflet-popup-content-wrapper {
   background: #27272a;
   color: #e4e4e7;
   border-radius: 0.5rem;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(6, 182, 212, 0.25);
 }
-
-.leaflet-popup-tip {
-  background: #27272a;
-}
-
-.leaflet-popup-close-button {
-  color: #a1a1aa !important;
-}
-
-.leaflet-popup-close-button:hover {
-  color: #e4e4e7 !important;
-}
-
-.leaflet-control-zoom a {
+[data-theme="hacker"] .leaflet-popup-tip { background: #27272a; }
+[data-theme="hacker"] .leaflet-popup-close-button { color: #a1a1aa !important; }
+[data-theme="hacker"] .leaflet-popup-close-button:hover { color: #e4e4e7 !important; }
+[data-theme="hacker"] .leaflet-control-zoom a {
   background-color: #27272a !important;
   color: #a1a1aa !important;
   border-color: #3f3f46 !important;
 }
-
-.leaflet-control-zoom a:hover {
+[data-theme="hacker"] .leaflet-control-zoom a:hover {
   background-color: #3f3f46 !important;
   color: #e4e4e7 !important;
 }
-
-.leaflet-control-attribution {
+[data-theme="hacker"] .leaflet-control-attribution {
   background: rgba(39, 39, 42, 0.9) !important;
   color: #71717a !important;
 }
+[data-theme="hacker"] .leaflet-control-attribution a { color: #22d3ee !important; }
 
-.leaflet-control-attribution a {
-  color: #22d3ee !important;
+/* ── Leaflet: Modern theme ───────────────────────────────── */
+[data-theme="corporate"] .leaflet-popup-content-wrapper {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
 }
+[data-theme="corporate"] .leaflet-popup-tip { background: #ffffff; }
+[data-theme="corporate"] .leaflet-popup-close-button { color: #94a3b8 !important; }
+[data-theme="corporate"] .leaflet-popup-close-button:hover { color: #0f172a !important; }
+[data-theme="corporate"] .leaflet-control-zoom a {
+  background-color: #ffffff !important;
+  color: #64748b !important;
+  border-color: #e2e8f0 !important;
+}
+[data-theme="corporate"] .leaflet-control-zoom a:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+[data-theme="corporate"] .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #94a3b8 !important;
+}
+[data-theme="corporate"] .leaflet-control-attribution a { color: #3b82f6 !important; }

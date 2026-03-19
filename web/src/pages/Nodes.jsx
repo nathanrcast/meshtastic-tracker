@@ -19,10 +19,10 @@ function batteryBar(level) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-2 bg-zinc-700 rounded-full overflow-hidden">
+      <div className="w-16 h-2 bg-th-border rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${level}%` }} />
       </div>
-      <span className="text-xs text-zinc-400 font-mono">{level}%</span>
+      <span className="text-xs text-th-dim font-mono">{level}%</span>
     </div>
   );
 }
@@ -38,7 +38,6 @@ export default function Nodes() {
     api.nodes().then(setNodes).catch(console.error);
   }, []);
 
-  // Refresh time-ago displays
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -169,14 +168,14 @@ export default function Nodes() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-mesh-400 font-mono tracking-tight">Nodes</h1>
-        <div className="flex bg-zinc-800 rounded-md p-0.5 text-sm font-mono border border-zinc-700">
+        <h1 className="text-xl font-bold text-th-accent font-mono tracking-tight">Nodes</h1>
+        <div className="flex bg-th-surface rounded-md p-0.5 text-sm font-mono border border-th-border">
           <button
             onClick={() => setFilter("all")}
             className={`px-3 py-1 rounded transition-colors ${
               filter === "all"
-                ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
-                : "text-zinc-400 hover:text-zinc-200"
+                ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                : "text-th-dim hover:text-th-text"
             }`}
           >
             All ({nodes.length})
@@ -186,17 +185,17 @@ export default function Nodes() {
             className={`px-3 py-1 rounded transition-colors ${
               filter === "tracked"
                 ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
-                : "text-zinc-400 hover:text-zinc-200"
+                : "text-th-dim hover:text-th-text"
             }`}
           >
             Tracked ({trackedCount})
           </button>
         </div>
       </div>
-      <div className="bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden shadow-lg shadow-black/20">
+      <div className="bg-th-surface border border-th-border rounded-lg overflow-hidden shadow-lg shadow-black/20">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-mesh-800/40 text-left text-zinc-400 font-mono text-xs">
+            <tr className="border-b border-th-accent-border/40 text-left text-th-dim font-mono text-xs">
               <th className="px-3 py-3 font-medium w-10"></th>
               {[
                 { key: "status", label: "STATUS", className: "" },
@@ -210,11 +209,11 @@ export default function Nodes() {
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-mesh-300 transition-colors ${col.className}`}
+                  className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-th-accent-light transition-colors ${col.className}`}
                 >
                   {col.label}
                   {sortKey === col.key && (
-                    <span className="ml-1 text-mesh-400">{sortDir === "desc" ? "▼" : "▲"}</span>
+                    <span className="ml-1 text-th-accent">{sortDir === "desc" ? "▼" : "▲"}</span>
                   )}
                 </th>
               ))}
@@ -222,7 +221,7 @@ export default function Nodes() {
           </thead>
           <tbody className="stagger-children">
             {displayNodes.map((node) => (
-              <tr key={node.node_id} className="border-b border-zinc-700/50 hover:bg-zinc-700/20">
+              <tr key={node.node_id} className="border-b border-th-border/50 hover:bg-th-hover/20">
                 <td className="px-3 py-3">
                   <button
                     onClick={() => toggleTracked(node)}
@@ -234,7 +233,7 @@ export default function Nodes() {
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5 text-zinc-600 hover:text-zinc-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-th-faint hover:text-th-dim" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                       </svg>
                     )}
@@ -243,40 +242,40 @@ export default function Nodes() {
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block w-2.5 h-2.5 rounded-full ${
-                      node.is_online ? "bg-emerald-500 animate-pulse-slow" : "bg-zinc-600"
+                      node.is_online ? "bg-emerald-500 animate-pulse-slow" : "bg-th-faint"
                     }`}
                   />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="text-zinc-100 font-medium">
+                  <div className="text-th-text font-medium">
                     {node.long_name || node.node_id}
                   </div>
                   {node.short_name && (
-                    <div className="text-xs text-zinc-500">{node.short_name}</div>
+                    <div className="text-xs text-th-muted">{node.short_name}</div>
                   )}
                 </td>
-                <td className="px-4 py-3 text-zinc-400 hidden sm:table-cell">
+                <td className="px-4 py-3 text-th-dim hidden sm:table-cell">
                   {node.hardware_model || "—"}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  {batteryBar(node.battery_level) || <span className="text-zinc-600">—</span>}
+                  {batteryBar(node.battery_level) || <span className="text-th-faint">—</span>}
                 </td>
-                <td className="px-4 py-3 text-zinc-400 hidden md:table-cell font-mono">
+                <td className="px-4 py-3 text-th-dim hidden md:table-cell font-mono">
                   {node.snr != null ? `${node.snr} dB` : "—"}
                 </td>
-                <td className="px-4 py-3 text-zinc-400 text-xs hidden lg:table-cell font-mono">
+                <td className="px-4 py-3 text-th-dim text-xs hidden lg:table-cell font-mono">
                   {node.lat != null && node.lon != null
                     ? `${node.lat.toFixed(4)}, ${node.lon.toFixed(4)}`
                     : "—"}
                 </td>
-                <td className="px-4 py-3 text-zinc-500 text-xs font-mono">
+                <td className="px-4 py-3 text-th-muted text-xs font-mono">
                   {timeAgo(node.last_heard)}
                 </td>
               </tr>
             ))}
             {displayNodes.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500 font-mono">
+                <td colSpan={8} className="px-4 py-8 text-center text-th-muted font-mono">
                   {filter === "tracked" ? "no tracked nodes — star nodes to track them" : "no nodes discovered yet"}
                 </td>
               </tr>

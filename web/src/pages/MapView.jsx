@@ -11,7 +11,6 @@ export default function MapView() {
   const [trails, setTrails] = useState({});
   const [filter, setFilter] = useState("tracked");
 
-  // Initial data load
   useEffect(() => {
     api.nodes().then(setNodes).catch(console.error);
     api.channels().then(setChannels).catch(console.error);
@@ -20,7 +19,6 @@ export default function MapView() {
     }).catch(console.error);
   }, []);
 
-  // Fetch history when switching to a channel with no cached messages
   useEffect(() => {
     if (messagesByChannel[selectedChannel]) return;
     api.messages(selectedChannel, 100).then((msgs) => {
@@ -40,13 +38,11 @@ export default function MapView() {
     [nodes, filter]
   );
 
-  // Stable key for trail fetching — only re-fetch when the set of displayed node IDs changes
   const displayNodeIds = useMemo(
     () => displayNodes.filter((n) => n.lat != null && n.lon != null).map((n) => n.node_id).sort().join(","),
     [displayNodes]
   );
 
-  // Load trails only for displayed nodes with positions
   useEffect(() => {
     if (!displayNodeIds) {
       setTrails({});
@@ -75,7 +71,6 @@ export default function MapView() {
     });
   }, []);
 
-  // WebSocket for real-time updates
   const handleEvent = useCallback((event) => {
     if (event.type === "position") {
       setNodes((prev) =>
@@ -138,14 +133,13 @@ export default function MapView() {
       <div className="flex-1 relative">
         <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
 
-        {/* Filter toggle */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-800/90 backdrop-blur border border-zinc-600 rounded-md p-0.5 text-sm shadow-lg animate-fade-in font-mono">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-sm shadow-lg animate-fade-in font-mono">
           <button
             onClick={() => setFilter("tracked")}
             className={`px-3 py-1.5 rounded transition-colors ${
               filter === "tracked"
                 ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
-                : "text-zinc-400 hover:text-zinc-200"
+                : "text-th-dim hover:text-th-text"
             }`}
           >
             My Nodes
@@ -154,22 +148,21 @@ export default function MapView() {
             onClick={() => setFilter("all")}
             className={`px-3 py-1.5 rounded transition-colors ${
               filter === "all"
-                ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
-                : "text-zinc-400 hover:text-zinc-200"
+                ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                : "text-th-dim hover:text-th-text"
             }`}
           >
             All Nodes ({nodes.length})
           </button>
         </div>
 
-        {/* Empty state for tracked filter */}
         {filter === "tracked" && !hasTracked && (
           <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
-            <div className="bg-zinc-800/90 backdrop-blur border border-zinc-600 rounded-lg p-6 text-center pointer-events-auto">
-              <p className="text-zinc-300 mb-2 font-mono">No tracked nodes</p>
-              <p className="text-zinc-500 text-sm">
+            <div className="bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-lg p-6 text-center pointer-events-auto">
+              <p className="text-th-body mb-2 font-mono">No tracked nodes</p>
+              <p className="text-th-muted text-sm">
                 Go to the{" "}
-                <a href="/nodes" className="text-mesh-400 hover:underline">
+                <a href="/nodes" className="text-th-accent hover:underline">
                   Nodes page
                 </a>{" "}
                 and star your devices
