@@ -29,7 +29,8 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     csp = (
         "default-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
         "img-src 'self' https://*.basemaps.cartocdn.com https://unpkg.com data:; "
         "connect-src 'self' ws: wss:"
     )
@@ -100,8 +101,8 @@ def api_messages(channel: int = Query(default=0, ge=0), limit: int = Query(defau
 @app.post("/api/messages")
 def api_send_message(body: SendMessage):
     try:
-        mesh.send_text(body.text, body.channel)
-        return {"ok": True}
+        result = mesh.send_text(body.text, body.channel)
+        return result
     except RuntimeError as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=str(e))

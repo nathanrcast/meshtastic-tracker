@@ -226,26 +226,33 @@ class MeshtasticManager:
         self._connected = False
         self._interface = None
 
-    def send_text(self, text: str, channel: int = 0):
+    def send_text(self, text: str, channel: int = 0) -> dict:
         if not self._interface or not self._connected:
             raise RuntimeError("Not connected to Meshtastic")
         self._interface.sendText(text, channelIndex=channel)
-        if self._my_node_id:
-            db = SessionLocal()
-            try:
-                msg = add_message(db, self._my_node_id, "^all", channel, text)
-            finally:
-                db.close()
-            self._broadcast({
-                "type": "message",
-                "id": msg.id,
-                "from_id": self._my_node_id,
-                "from_name": "Base Station",
-                "to_id": "^all",
-                "channel": channel,
-                "text": text,
-                "timestamp": msg.timestamp.isoformat(),
-            })
+        from_id = self._my_node_id or "local"
+        db = SessionLocal()
+        try:
+            msg = add_message(db, from_id, "^all", channel, text)
+            from src.models import Node
+            node = db.query(Node).filter_by(node_id=from_id).first() if self._my_node_id else None
+            from_name = node.long_name if node else "Base Station"
+        finally:
+            db.close()
+        event = {
+            "type": "message",
+            "id": msg.id,
+            "from_id": from_id,
+            "from_name": from_name,
+            "to_id": "^all",
+            "channel": channel,
+            "text": text,
+            "snr": None,
+            "rssi": None,
+            "timestamp": msg.timestamp.isoformat(),
+        }
+        self._broadcast(event)
+        return event
 
     def disconnect(self):
         self._auto_reconnect = False

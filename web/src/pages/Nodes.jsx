@@ -19,7 +19,7 @@ function batteryBar(level) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-2 bg-zinc-700 rounded-full overflow-hidden">
+      <div className="w-16 h-2 bg-zinc-600 rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${level}%` }} />
       </div>
       <span className="text-xs text-zinc-400 font-mono">{level}%</span>
@@ -170,7 +170,7 @@ export default function Nodes() {
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-zinc-100 font-mono tracking-tight">Nodes</h1>
-        <div className="flex bg-zinc-800 rounded-lg p-0.5 text-sm">
+        <div className="flex bg-zinc-700 rounded-lg p-0.5 text-sm">
           <button
             onClick={() => setFilter("all")}
             className={`px-3 py-1 rounded-md transition-colors ${
@@ -193,10 +193,10 @@ export default function Nodes() {
           </button>
         </div>
       </div>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg shadow-black/20">
+      <div className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden shadow-lg shadow-black/20">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-800 text-left text-zinc-400">
+            <tr className="border-b border-zinc-700 text-left text-zinc-400">
               <th className="px-3 py-3 font-medium w-10"></th>
               {[
                 { key: "status", label: "Status", className: "" },
@@ -222,7 +222,7 @@ export default function Nodes() {
           </thead>
           <tbody className="stagger-children">
             {displayNodes.map((node) => (
-              <tr key={node.node_id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+              <tr key={node.node_id} className="border-b border-zinc-700/50 hover:bg-zinc-700/30">
                 <td className="px-3 py-3">
                   <button
                     onClick={() => toggleTracked(node)}

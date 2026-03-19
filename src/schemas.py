@@ -41,6 +41,8 @@ class MessageResponse(BaseModel):
     to_id: str
     channel: int
     text: str
+    snr: float | None = None
+    rssi: int | None = None
     timestamp: str
 
     class Config:

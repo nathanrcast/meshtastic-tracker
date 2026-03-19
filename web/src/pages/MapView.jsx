@@ -66,6 +66,15 @@ export default function MapView() {
     });
   }, [displayNodeIds]);
 
+  const addMessage = useCallback((msg) => {
+    const ch = msg.channel ?? 0;
+    setMessagesByChannel((prev) => {
+      const existing = prev[ch] || [];
+      if (existing.some((m) => m.id === msg.id)) return prev;
+      return { ...prev, [ch]: [...existing, msg] };
+    });
+  }, []);
+
   // WebSocket for real-time updates
   const handleEvent = useCallback((event) => {
     if (event.type === "position") {
@@ -87,11 +96,7 @@ export default function MapView() {
         };
       });
     } else if (event.type === "message") {
-      const ch = event.channel ?? 0;
-      setMessagesByChannel((prev) => ({
-        ...prev,
-        [ch]: [...(prev[ch] || []), event],
-      }));
+      addMessage(event);
     } else if (event.type === "node_update") {
       setNodes((prev) => {
         const exists = prev.some((n) => n.node_id === event.node_id);
@@ -122,7 +127,7 @@ export default function MapView() {
         ];
       });
     }
-  }, []);
+  }, [addMessage]);
 
   useWebSocket(handleEvent);
 
@@ -134,7 +139,7 @@ export default function MapView() {
         <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
 
         {/* Filter toggle */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg p-0.5 text-sm shadow-lg animate-fade-in">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-800/90 backdrop-blur border border-zinc-600 rounded-lg p-0.5 text-sm shadow-lg animate-fade-in">
           <button
             onClick={() => setFilter("tracked")}
             className={`px-3 py-1.5 rounded-md transition-colors ${
@@ -160,7 +165,7 @@ export default function MapView() {
         {/* Empty state for tracked filter */}
         {filter === "tracked" && !hasTracked && (
           <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
-            <div className="bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-xl p-6 text-center pointer-events-auto">
+            <div className="bg-zinc-800/90 backdrop-blur border border-zinc-600 rounded-xl p-6 text-center pointer-events-auto">
               <p className="text-zinc-300 mb-2">No tracked nodes yet</p>
               <p className="text-zinc-500 text-sm">
                 Go to the{" "}
@@ -179,6 +184,7 @@ export default function MapView() {
         channels={channels}
         selectedChannel={selectedChannel}
         onChannelChange={setSelectedChannel}
+        onMessageSent={addMessage}
       />
     </div>
   );

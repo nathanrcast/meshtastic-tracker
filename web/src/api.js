@@ -29,12 +29,18 @@ export const api = {
     fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/positions?hours=${hours}`),
   messages: (channel = 0, limit = 100) =>
     fetchJSON(`/messages?channel=${channel}&limit=${limit}`),
-  sendMessage: (text, channel = 0) =>
-    fetchJSON("/messages", {
+  sendMessage: async (text, channel = 0) => {
+    const res = await fetch(`${BASE}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, channel }),
-    }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail || `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
   channels: () => fetchJSON("/channels"),
   health: () => fetchJSON("/health"),
   disconnect: () => fetchJSON("/disconnect", { method: "POST" }),

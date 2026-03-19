@@ -7,7 +7,7 @@ function formatTime(iso) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange }) {
+export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -22,8 +22,11 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     if (!text.trim() || sending) return;
     setSending(true);
     try {
-      await api.sendMessage(text.trim(), selectedChannel);
+      const msg = await api.sendMessage(text.trim(), selectedChannel);
       setText("");
+      if (onMessageSent && msg?.id) {
+        onMessageSent(msg);
+      }
     } catch (err) {
       console.error("Send failed:", err);
     } finally {
@@ -33,13 +36,13 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
   return (
     <div
-      className={`bg-zinc-900 border-l border-zinc-800 flex flex-col transition-all duration-200 ${
+      className={`bg-zinc-800 border-l border-zinc-700 flex flex-col transition-all duration-200 ${
         collapsed ? "w-10" : "w-80"
       }`}
     >
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="p-2 text-zinc-400 hover:text-zinc-100 border-b border-zinc-800 flex items-center justify-center"
+        className="p-2 text-zinc-400 hover:text-zinc-100 border-b border-zinc-700 flex items-center justify-center"
       >
         {collapsed ? (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,7 +57,7 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
       {!collapsed && (
         <>
-          <div className="px-3 py-2 border-b border-zinc-800">
+          <div className="px-3 py-2 border-b border-zinc-700">
             <h2 className="text-sm font-semibold text-zinc-100">Messages</h2>
             {channels.length <= 1 ? (
               <p className="text-xs text-zinc-500">{channels[0]?.name || "Primary"}</p>
@@ -67,7 +70,7 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                     className={`px-2 py-0.5 rounded-full text-xs whitespace-nowrap transition-colors ${
                       selectedChannel === ch.index
                         ? "bg-mesh-600 text-white"
-                        : "bg-zinc-800 text-zinc-400 hover:text-zinc-100"
+                        : "bg-zinc-700 text-zinc-400 hover:text-zinc-100"
                     }`}
                   >
                     {ch.name}
@@ -99,14 +102,14 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
             <div ref={bottomRef} />
           </div>
 
-          <form onSubmit={send} className="p-3 border-t border-zinc-800 flex gap-2">
+          <form onSubmit={send} className="p-3 border-t border-zinc-700 flex gap-2">
             <input
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Send message..."
               maxLength={228}
-              className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-3 py-2 text-sm focus:border-mesh-500 focus:outline-none transition-colors duration-150"
+              className="flex-1 bg-zinc-700 border border-zinc-600 text-zinc-100 rounded-lg px-3 py-2 text-sm focus:border-mesh-500 focus:outline-none transition-colors duration-150"
             />
             <button
               type="submit"
