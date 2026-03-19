@@ -36,13 +36,13 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
   return (
     <div
-      className={`bg-zinc-800 border-l border-zinc-700 flex flex-col transition-all duration-200 ${
+      className={`bg-zinc-900 border-l border-mesh-800/40 flex flex-col transition-all duration-200 ${
         collapsed ? "w-10" : "w-80"
       }`}
     >
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="p-2 text-zinc-400 hover:text-zinc-100 border-b border-zinc-700 flex items-center justify-center"
+        className="p-2 text-zinc-400 hover:text-mesh-300 border-b border-zinc-700 flex items-center justify-center"
       >
         {collapsed ? (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,19 +58,19 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
       {!collapsed && (
         <>
           <div className="px-3 py-2 border-b border-zinc-700">
-            <h2 className="text-sm font-semibold text-zinc-100">Messages</h2>
+            <h2 className="text-sm font-semibold text-zinc-100 font-mono">Messages</h2>
             {channels.length <= 1 ? (
-              <p className="text-xs text-zinc-500">{channels[0]?.name || "Primary"}</p>
+              <p className="text-xs text-zinc-500 font-mono">{channels[0]?.name || "primary"}</p>
             ) : (
               <div className="flex gap-1 mt-1 overflow-x-auto">
                 {channels.map((ch) => (
                   <button
                     key={ch.index}
                     onClick={() => onChannelChange(ch.index)}
-                    className={`px-2 py-0.5 rounded-full text-xs whitespace-nowrap transition-colors ${
+                    className={`px-2 py-0.5 rounded text-xs whitespace-nowrap font-mono transition-colors ${
                       selectedChannel === ch.index
-                        ? "bg-mesh-600 text-white"
-                        : "bg-zinc-700 text-zinc-400 hover:text-zinc-100"
+                        ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
+                        : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     {ch.name}
@@ -102,19 +102,19 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
             <div ref={bottomRef} />
           </div>
 
-          <form onSubmit={send} className="p-3 border-t border-zinc-700 flex gap-2">
+          <form onSubmit={send} className="p-3 border-t border-mesh-800/30 flex gap-2">
             <input
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Send message..."
+              placeholder="message..."
               maxLength={228}
-              className="flex-1 bg-zinc-700 border border-zinc-600 text-zinc-100 rounded-lg px-3 py-2 text-sm focus:border-mesh-500 focus:outline-none transition-colors duration-150"
+              className="flex-1 bg-zinc-800 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm font-mono focus:border-mesh-500 focus:outline-none transition-colors duration-150 placeholder:text-zinc-600"
             />
             <button
               type="submit"
               disabled={!text.trim() || sending}
-              className="bg-mesh-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-mesh-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+              className="border border-mesh-700 text-mesh-300 px-3 py-2 rounded text-sm font-mono hover:bg-mesh-950/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
             >
               Send
             </button>

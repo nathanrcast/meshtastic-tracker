@@ -139,23 +139,23 @@ export default function MapView() {
         <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
 
         {/* Filter toggle */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-800/90 backdrop-blur border border-zinc-600 rounded-lg p-0.5 text-sm shadow-lg animate-fade-in">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-md p-0.5 text-sm shadow-lg animate-fade-in font-mono">
           <button
             onClick={() => setFilter("tracked")}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
+            className={`px-3 py-1.5 rounded transition-colors ${
               filter === "tracked"
-                ? "bg-emerald-600 text-white"
-                : "text-zinc-400 hover:text-zinc-100"
+                ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             My Nodes
           </button>
           <button
             onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
+            className={`px-3 py-1.5 rounded transition-colors ${
               filter === "all"
-                ? "bg-mesh-600 text-white"
-                : "text-zinc-400 hover:text-zinc-100"
+                ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             All Nodes ({nodes.length})
@@ -165,14 +165,14 @@ export default function MapView() {
         {/* Empty state for tracked filter */}
         {filter === "tracked" && !hasTracked && (
           <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
-            <div className="bg-zinc-800/90 backdrop-blur border border-zinc-600 rounded-xl p-6 text-center pointer-events-auto">
-              <p className="text-zinc-300 mb-2">No tracked nodes yet</p>
+            <div className="bg-zinc-900/90 backdrop-blur border border-zinc-700 rounded-lg p-6 text-center pointer-events-auto">
+              <p className="text-zinc-300 mb-2 font-mono">No tracked nodes</p>
               <p className="text-zinc-500 text-sm">
                 Go to the{" "}
-                <a href="/nodes" className="text-emerald-400 hover:underline">
+                <a href="/nodes" className="text-mesh-400 hover:underline">
                   Nodes page
                 </a>{" "}
-                and star your family devices
+                and star your devices
               </p>
             </div>
           </div>

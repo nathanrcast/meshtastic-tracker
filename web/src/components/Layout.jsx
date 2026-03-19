@@ -39,9 +39,9 @@ export default function Layout() {
 
   const navContent = (
     <>
-      <h1 className="text-lg font-bold mb-1 text-zinc-100 font-mono tracking-tight">Meshtastic</h1>
-      <p className="text-xs text-zinc-500 mb-6">Mesh Network</p>
-      <ul className="space-y-1 flex-1">
+      <h1 className="text-lg font-bold mb-1 text-mesh-400 font-mono tracking-tight">Meshtastic</h1>
+      <p className="text-xs text-zinc-500 mb-6 font-mono">mesh_network</p>
+      <ul className="space-y-0.5 flex-1">
         {links.map((l) => (
           <li key={l.to}>
             <NavLink
@@ -49,10 +49,10 @@ export default function Layout() {
               end={l.to === "/"}
               onClick={closeMenu}
               className={({ isActive }) =>
-                `block px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
+                `block py-2 text-sm transition-colors duration-150 ${
                   isActive
-                    ? "bg-mesh-600 text-white"
-                    : "text-zinc-300 hover:bg-zinc-700 hover:text-mesh-300"
+                    ? "text-mesh-300 border-l-2 border-mesh-500 bg-mesh-950/30 pl-2.5 pr-3"
+                    : "text-zinc-400 hover:text-zinc-200 pl-3 pr-3"
                 }`
               }
             >
@@ -61,15 +61,15 @@ export default function Layout() {
           </li>
         ))}
       </ul>
-      <div className="border-t border-zinc-700 pt-3 mt-3">
-        <div className="flex items-center gap-2 px-3 py-2">
+      <div className="border-t border-mesh-800/30 pt-3 mt-3">
+        <div className="flex items-center gap-2 px-1 py-2">
           <span
             className={`inline-block w-2 h-2 rounded-full ${
               health?.connected ? "bg-emerald-500 animate-pulse-slow" : "bg-red-500"
             }`}
           />
-          <span className="text-xs text-zinc-400 flex-1">
-            {health?.connected ? "Connected" : "Disconnected"}
+          <span className="text-xs text-zinc-400 flex-1 font-mono">
+            {health?.connected ? "connected" : "disconnected"}
           </span>
           <button
             onClick={toggleConnection}
@@ -89,7 +89,7 @@ export default function Layout() {
           </button>
         </div>
         {health && (
-          <p className="text-xs text-zinc-500 px-3 font-mono">
+          <p className="text-xs text-zinc-500 px-1 font-mono">
             {health.node_count} nodes &middot; {health.message_count} msgs
           </p>
         )}
@@ -99,11 +99,11 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="hidden md:flex md:w-56 bg-zinc-800 bg-mesh-grid border-r border-zinc-700 text-zinc-100 p-4 flex-shrink-0 flex-col">
+      <nav className="hidden md:flex md:w-52 bg-zinc-900 bg-mesh-grid border-r border-mesh-800/40 text-zinc-100 p-4 flex-shrink-0 flex-col">
         {navContent}
       </nav>
 
-      <div className="fixed top-0 left-0 right-0 z-40 md:hidden bg-zinc-800 border-b border-zinc-700 text-zinc-100 flex items-center px-4 h-12">
+      <div className="fixed top-0 left-0 right-0 z-40 md:hidden bg-zinc-900 border-b border-mesh-800/40 text-zinc-100 flex items-center px-4 h-12">
         <button onClick={() => setOpen(!open)} className="mr-3 p-1">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {open ? (
@@ -113,7 +113,7 @@ export default function Layout() {
             )}
           </svg>
         </button>
-        <span className="font-bold flex-1 font-mono tracking-tight">Meshtastic</span>
+        <span className="font-bold flex-1 font-mono tracking-tight text-mesh-400">Meshtastic</span>
         <button
           onClick={toggleConnection}
           disabled={toggling}
@@ -140,13 +140,13 @@ export default function Layout() {
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={closeMenu} />
-          <nav className="fixed top-0 left-0 bottom-0 z-50 w-64 bg-zinc-800 bg-mesh-grid border-r border-zinc-700 text-zinc-100 p-4 flex flex-col md:hidden">
+          <nav className="fixed top-0 left-0 bottom-0 z-50 w-56 bg-zinc-900 bg-mesh-grid border-r border-mesh-800/40 text-zinc-100 p-4 flex flex-col md:hidden">
             {navContent}
           </nav>
         </>
       )}
 
-      <main className="flex-1 bg-zinc-900 overflow-auto pt-12 md:pt-0">
+      <main className="flex-1 bg-zinc-800 overflow-auto pt-12 md:pt-0">
         <Outlet />
       </main>
     </div>

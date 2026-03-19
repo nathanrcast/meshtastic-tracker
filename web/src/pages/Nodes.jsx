@@ -19,7 +19,7 @@ function batteryBar(level) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-2 bg-zinc-600 rounded-full overflow-hidden">
+      <div className="w-16 h-2 bg-zinc-700 rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${level}%` }} />
       </div>
       <span className="text-xs text-zinc-400 font-mono">{level}%</span>
@@ -169,48 +169,48 @@ export default function Nodes() {
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-zinc-100 font-mono tracking-tight">Nodes</h1>
-        <div className="flex bg-zinc-700 rounded-lg p-0.5 text-sm">
+        <h1 className="text-xl font-bold text-mesh-400 font-mono tracking-tight">Nodes</h1>
+        <div className="flex bg-zinc-900 rounded-md p-0.5 text-sm font-mono border border-zinc-700">
           <button
             onClick={() => setFilter("all")}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-3 py-1 rounded transition-colors ${
               filter === "all"
-                ? "bg-mesh-600 text-white"
-                : "text-zinc-400 hover:text-zinc-100"
+                ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             All ({nodes.length})
           </button>
           <button
             onClick={() => setFilter("tracked")}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-3 py-1 rounded transition-colors ${
               filter === "tracked"
-                ? "bg-emerald-600 text-white"
-                : "text-zinc-400 hover:text-zinc-100"
+                ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             Tracked ({trackedCount})
           </button>
         </div>
       </div>
-      <div className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden shadow-lg shadow-black/20">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shadow-lg shadow-black/20">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-700 text-left text-zinc-400">
+            <tr className="border-b border-mesh-800/40 text-left text-zinc-400 font-mono text-xs">
               <th className="px-3 py-3 font-medium w-10"></th>
               {[
-                { key: "status", label: "Status", className: "" },
-                { key: "name", label: "Name", className: "" },
-                { key: "hardware", label: "Hardware", className: "hidden sm:table-cell" },
-                { key: "battery", label: "Battery", className: "hidden md:table-cell" },
+                { key: "status", label: "STATUS", className: "" },
+                { key: "name", label: "NAME", className: "" },
+                { key: "hardware", label: "HARDWARE", className: "hidden sm:table-cell" },
+                { key: "battery", label: "BATTERY", className: "hidden md:table-cell" },
                 { key: "snr", label: "SNR", className: "hidden md:table-cell" },
-                { key: "position", label: "Position", className: "hidden lg:table-cell" },
-                { key: "last_heard", label: "Last Heard", className: "" },
+                { key: "position", label: "POSITION", className: "hidden lg:table-cell" },
+                { key: "last_heard", label: "LAST HEARD", className: "" },
               ].map((col) => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-zinc-200 transition-colors ${col.className}`}
+                  className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-mesh-300 transition-colors ${col.className}`}
                 >
                   {col.label}
                   {sortKey === col.key && (
@@ -222,7 +222,7 @@ export default function Nodes() {
           </thead>
           <tbody className="stagger-children">
             {displayNodes.map((node) => (
-              <tr key={node.node_id} className="border-b border-zinc-700/50 hover:bg-zinc-700/30">
+              <tr key={node.node_id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
                 <td className="px-3 py-3">
                   <button
                     onClick={() => toggleTracked(node)}
@@ -276,8 +276,8 @@ export default function Nodes() {
             ))}
             {displayNodes.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
-                  {filter === "tracked" ? "No tracked nodes — star nodes to track them" : "No nodes discovered yet"}
+                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500 font-mono">
+                  {filter === "tracked" ? "no tracked nodes — star nodes to track them" : "no nodes discovered yet"}
                 </td>
               </tr>
             )}
