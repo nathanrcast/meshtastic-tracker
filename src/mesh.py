@@ -51,6 +51,18 @@ class MeshtasticManager:
             log.warning("MESHTASTIC_HOST not set, skipping connection")
             return
 
+        import socket
+
+        try:
+            # Pre-check connectivity with a short timeout before attempting TCPInterface
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            sock.connect((MESHTASTIC_HOST, MESHTASTIC_PORT))
+            sock.close()
+        except (socket.timeout, OSError):
+            log.warning("Meshtastic device unreachable at %s:%d", MESHTASTIC_HOST, MESHTASTIC_PORT)
+            return
+
         try:
             from meshtastic.tcp_interface import TCPInterface
 
@@ -280,7 +292,6 @@ class MeshtasticManager:
         if self._running:
             return
         self._running = True
-        self._connect()
         t = threading.Thread(target=self._reconnect_loop, daemon=True)
         t.start()
         log.info("MeshtasticManager started (reconnect_interval=%ds)", RECONNECT_INTERVAL)
