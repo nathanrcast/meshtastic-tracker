@@ -7,10 +7,25 @@ function formatTime(iso) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+const HIDDEN_CHANNELS_KEY = "meshtastic-hidden-channels";
+
+function loadHiddenChannels() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(HIDDEN_CHANNELS_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenChannels(set) {
+  localStorage.setItem(HIDDEN_CHANNELS_KEY, JSON.stringify([...set]));
+}
+
 export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [hiddenChannels, setHiddenChannels] = useState(loadHiddenChannels);
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -34,9 +49,28 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     }
   };
 
+  const hideChannel = (index) => {
+    const next = new Set(hiddenChannels);
+    next.add(index);
+    setHiddenChannels(next);
+    saveHiddenChannels(next);
+    if (selectedChannel === index) {
+      const visible = channels.filter((ch) => !next.has(ch.index));
+      if (visible.length > 0) onChannelChange(visible[0].index);
+    }
+  };
+
+  const showAllChannels = () => {
+    setHiddenChannels(new Set());
+    saveHiddenChannels(new Set());
+  };
+
+  const visibleChannels = channels.filter((ch) => !hiddenChannels.has(ch.index));
+  const hasHidden = hiddenChannels.size > 0;
+
   return (
     <div
-      className={`bg-zinc-900 border-l border-mesh-800/40 flex flex-col transition-all duration-200 ${
+      className={`bg-zinc-800 border-l border-mesh-800/40 flex flex-col transition-all duration-200 ${
         collapsed ? "w-10" : "w-80"
       }`}
     >
@@ -59,23 +93,44 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
         <>
           <div className="px-3 py-2 border-b border-zinc-700">
             <h2 className="text-sm font-semibold text-zinc-100 font-mono">Messages</h2>
-            {channels.length <= 1 ? (
-              <p className="text-xs text-zinc-500 font-mono">{channels[0]?.name || "primary"}</p>
+            {visibleChannels.length <= 1 && !hasHidden ? (
+              <p className="text-xs text-zinc-500 font-mono">{visibleChannels[0]?.name || "primary"}</p>
             ) : (
-              <div className="flex gap-1 mt-1 overflow-x-auto">
-                {channels.map((ch) => (
-                  <button
-                    key={ch.index}
-                    onClick={() => onChannelChange(ch.index)}
-                    className={`px-2 py-0.5 rounded text-xs whitespace-nowrap font-mono transition-colors ${
-                      selectedChannel === ch.index
-                        ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
-                        : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-                    }`}
-                  >
-                    {ch.name}
-                  </button>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {visibleChannels.map((ch) => (
+                  <div key={ch.index} className="flex items-center group">
+                    <button
+                      onClick={() => onChannelChange(ch.index)}
+                      className={`px-2 py-0.5 rounded-l text-xs font-mono transition-colors ${
+                        selectedChannel === ch.index
+                          ? "bg-mesh-950/50 text-mesh-300 ring-1 ring-mesh-700"
+                          : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {ch.name}
+                    </button>
+                    <button
+                      onClick={() => hideChannel(ch.index)}
+                      className={`px-1 py-0.5 rounded-r text-xs transition-colors opacity-0 group-hover:opacity-100 ${
+                        selectedChannel === ch.index
+                          ? "bg-mesh-950/50 text-zinc-500 hover:text-red-400 ring-1 ring-mesh-700"
+                          : "bg-zinc-900 text-zinc-600 hover:text-red-400"
+                      }`}
+                      title="Hide channel"
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
+                {hasHidden && (
+                  <button
+                    onClick={showAllChannels}
+                    className="px-2 py-0.5 rounded text-xs font-mono text-zinc-500 hover:text-mesh-300 transition-colors"
+                    title="Show all hidden channels"
+                  >
+                    +{hiddenChannels.size}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -109,7 +164,7 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
               onChange={(e) => setText(e.target.value)}
               placeholder="message..."
               maxLength={228}
-              className="flex-1 bg-zinc-800 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm font-mono focus:border-mesh-500 focus:outline-none transition-colors duration-150 placeholder:text-zinc-600"
+              className="flex-1 bg-zinc-900 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm font-mono focus:border-mesh-500 focus:outline-none transition-colors duration-150 placeholder:text-zinc-600"
             />
             <button
               type="submit"
