@@ -11,12 +11,12 @@ const TILES = {
 const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
-function createIcon(online, tracked, isDark, color) {
+function createIcon(online, tracked, isDark, nodeClr) {
   const stroke = isDark ? "#18181b" : "#ffffff";
   const accentColor = isDark ? "#22d3ee" : "#3b82f6";
 
   if (tracked) {
-    const c = color || "#34d399";
+    const c = nodeClr || "#34d399";
     if (online) {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="18" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.2">
