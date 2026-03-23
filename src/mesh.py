@@ -333,13 +333,12 @@ class MeshtasticManager:
         if not self._interface or not self._connected:
             raise RuntimeError("Not connected to Meshtastic")
 
-        from meshtastic import mesh_pb2
-        from meshtastic.portnums_pb2 import PortNum
+        from meshtastic.protobuf import mesh_pb2, portnums_pb2
         from meshtastic.mesh_interface import BROADCAST_ADDR
 
         meshPacket = mesh_pb2.MeshPacket()
         meshPacket.channel = channel
-        meshPacket.decoded.portnum = PortNum.TEXT_MESSAGE_APP
+        meshPacket.decoded.portnum = portnums_pb2.PortNum.TEXT_MESSAGE_APP
         meshPacket.decoded.payload = emoji.encode("utf-8")
         meshPacket.decoded.emoji = 1
         meshPacket.decoded.reply_id = reply_to_packet_id
