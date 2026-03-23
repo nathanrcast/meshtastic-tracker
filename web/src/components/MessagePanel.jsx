@@ -8,6 +8,7 @@ function formatTime(iso) {
 }
 
 const HIDDEN_CHANNELS_KEY = "meshtastic-hidden-channels";
+const CHANNEL_ORDER_KEY = "meshtastic-channel-order";
 
 function loadHiddenChannels() {
   try {
@@ -19,6 +20,28 @@ function loadHiddenChannels() {
 
 function saveHiddenChannels(set) {
   localStorage.setItem(HIDDEN_CHANNELS_KEY, JSON.stringify([...set]));
+}
+
+function loadChannelOrder() {
+  try {
+    return JSON.parse(localStorage.getItem(CHANNEL_ORDER_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveChannelOrder(order) {
+  localStorage.setItem(CHANNEL_ORDER_KEY, JSON.stringify(order));
+}
+
+function sortChannels(channels, order) {
+  if (!order.length) return channels;
+  const pos = new Map(order.map((idx, i) => [idx, i]));
+  return [...channels].sort((a, b) => {
+    const pa = pos.has(a.index) ? pos.get(a.index) : Infinity;
+    const pb = pos.has(b.index) ? pos.get(b.index) : Infinity;
+    return pa - pb;
+  });
 }
 
 const EMOJI_GROUPS = [
@@ -37,6 +60,9 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
   const [hiddenChannels, setHiddenChannels] = useState(loadHiddenChannels);
   const [showEmoji, setShowEmoji] = useState(false);
   const [hoveredMsgId, setHoveredMsgId] = useState(null);
+  const [channelOrder, setChannelOrder] = useState(loadChannelOrder);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -111,7 +137,25 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     saveHiddenChannels(new Set());
   };
 
+  const onDragStart = (chIndex) => setDragIdx(chIndex);
+  const onDragOver = (e, chIndex) => { e.preventDefault(); setDragOverIdx(chIndex); };
+  const onDragEnd = () => { setDragIdx(null); setDragOverIdx(null); };
+  const onDrop = (targetIndex) => {
+    if (dragIdx == null || dragIdx === targetIndex) return;
+    const ordered = visibleChannelsSorted.map((ch) => ch.index);
+    const fromPos = ordered.indexOf(dragIdx);
+    const toPos = ordered.indexOf(targetIndex);
+    if (fromPos < 0 || toPos < 0) return;
+    ordered.splice(fromPos, 1);
+    ordered.splice(toPos, 0, dragIdx);
+    setChannelOrder(ordered);
+    saveChannelOrder(ordered);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
+
   const visibleChannels = channels.filter((ch) => !hiddenChannels.has(ch.index));
+  const visibleChannelsSorted = sortChannels(visibleChannels, channelOrder);
   const hasHidden = hiddenChannels.size > 0;
 
   return (
@@ -139,12 +183,22 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
         <>
           <div className="px-3 py-2 border-b border-th-border">
             <h2 className="text-sm font-semibold text-th-text font-mono">Messages</h2>
-            {visibleChannels.length <= 1 && !hasHidden ? (
-              <p className="text-xs text-th-muted font-mono">{visibleChannels[0]?.name || "primary"}</p>
+            {visibleChannelsSorted.length <= 1 && !hasHidden ? (
+              <p className="text-xs text-th-muted font-mono">{visibleChannelsSorted[0]?.name || "primary"}</p>
             ) : (
               <div className="flex flex-wrap gap-1 mt-1">
-                {visibleChannels.map((ch) => (
-                  <div key={ch.index} className="flex items-center group">
+                {visibleChannelsSorted.map((ch) => (
+                  <div
+                    key={ch.index}
+                    className={`flex items-center group cursor-grab active:cursor-grabbing transition-opacity ${
+                      dragIdx != null && dragIdx !== ch.index && dragOverIdx === ch.index ? "border-l-2 border-th-accent" : ""
+                    } ${dragIdx === ch.index ? "opacity-40" : ""}`}
+                    draggable
+                    onDragStart={() => onDragStart(ch.index)}
+                    onDragOver={(e) => onDragOver(e, ch.index)}
+                    onDragEnd={onDragEnd}
+                    onDrop={() => onDrop(ch.index)}
+                  >
                     <button
                       onClick={() => onChannelChange(ch.index)}
                       className={`px-2 py-0.5 rounded-l text-xs font-mono transition-colors ${
