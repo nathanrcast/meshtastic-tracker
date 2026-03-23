@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from src.db import Base
@@ -28,6 +28,9 @@ class Node(Base):
 
 class NodePosition(Base):
     __tablename__ = "node_positions"
+    __table_args__ = (
+        Index("idx_position_node_timestamp", "node_id", "timestamp"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     node_id = Column(String(20), ForeignKey("nodes.node_id"), nullable=False)
@@ -41,6 +44,10 @@ class NodePosition(Base):
 
 class Message(Base):
     __tablename__ = "messages"
+    __table_args__ = (
+        Index("idx_message_channel_timestamp", "channel", "timestamp"),
+        Index("idx_message_from_id", "from_id"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     from_id = Column(String(20), nullable=False)

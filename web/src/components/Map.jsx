@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../theme";
@@ -90,6 +90,7 @@ export default function Map({ nodes, trails, trackedIds }) {
   const tileRef = useRef(null);
   const markersRef = useRef({});
   const trailsRef = useRef({});
+  const [hasFitBounds, setHasFitBounds] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === "hacker";
 
@@ -163,10 +164,11 @@ export default function Map({ nodes, trails, trackedIds }) {
       }
     }
 
-    if (bounds.length > 0) {
+    if (bounds.length > 0 && !hasFitBounds) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+      setHasFitBounds(true);
     }
-  }, [nodes, trackedIds, isDark]);
+  }, [nodes, trackedIds, isDark, hasFitBounds]);
 
   // Update trail polylines
   useEffect(() => {

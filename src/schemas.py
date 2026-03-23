@@ -51,12 +51,11 @@ class MessageResponse(BaseModel):
 
 class SendMessage(BaseModel):
     text: str = Field(min_length=1, max_length=228)
-    channel: int = 0
+    channel: int = Field(default=0, ge=0, le=255)
 
 
 class HealthResponse(BaseModel):
     connected: bool
-    meshtastic_host: str
     node_count: int
     message_count: int
     my_node_id: str | None = None

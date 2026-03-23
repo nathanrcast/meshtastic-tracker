@@ -75,7 +75,8 @@ export default function MapView() {
     setMessagesByChannel((prev) => {
       const existing = prev[ch] || [];
       if (existing.some((m) => m.id === msg.id)) return prev;
-      return { ...prev, [ch]: [...existing, msg] };
+      const updated = [...existing, msg];
+      return { ...prev, [ch]: updated.length > 500 ? updated.slice(-500) : updated };
     });
   }, []);
 
@@ -90,12 +91,10 @@ export default function MapView() {
       );
       setTrails((prev) => {
         const existing = prev[event.node_id] || [];
+        const updated = [...existing, { lat: event.lat, lon: event.lon, altitude: event.altitude }];
         return {
           ...prev,
-          [event.node_id]: [
-            ...existing,
-            { lat: event.lat, lon: event.lon, altitude: event.altitude },
-          ],
+          [event.node_id]: updated.length > 500 ? updated.slice(-500) : updated,
         };
       });
     } else if (event.type === "message") {

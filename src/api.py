@@ -90,7 +90,7 @@ def api_channels():
 
 
 @app.get("/api/messages")
-def api_messages(channel: int = Query(default=0, ge=0), limit: int = Query(default=100, ge=1, le=500)):
+def api_messages(channel: int = Query(default=0, ge=0, le=255), limit: int = Query(default=100, ge=1, le=500)):
     db = SessionLocal()
     try:
         return list_messages(db, channel, limit)
@@ -129,7 +129,6 @@ def api_health():
         db.close()
     return {
         "connected": mesh.connected,
-        "meshtastic_host": os.getenv("MESHTASTIC_HOST", ""),
         "node_count": stats["node_count"],
         "message_count": stats["message_count"],
         "my_node_id": mesh.my_node_id,
@@ -141,11 +140,14 @@ def api_health():
 @app.websocket("/api/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
-    queue: asyncio.Queue = asyncio.Queue()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)
     loop = asyncio.get_event_loop()
 
     def on_event(event: dict):
-        loop.call_soon_threadsafe(queue.put_nowait, event)
+        try:
+            loop.call_soon_threadsafe(queue.put_nowait, event)
+        except asyncio.QueueFull:
+            pass
 
     mesh.register_ws(on_event)
     try:
