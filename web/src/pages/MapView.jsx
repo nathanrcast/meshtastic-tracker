@@ -82,6 +82,14 @@ export default function MapView() {
     setMessagesByChannel((prev) => {
       const existing = prev[ch] || [];
       if (existing.some((m) => m.id === msg.id)) return prev;
+      // If this is the real message replacing an optimistic one, swap it in
+      const isPending = String(msg.id).startsWith?.("pending-");
+      if (!isPending && existing.some((m) => String(m.id).startsWith("pending-") && m.text === msg.text)) {
+        const updated = existing.map((m) =>
+          String(m.id).startsWith("pending-") && m.text === msg.text ? msg : m
+        );
+        return { ...prev, [ch]: updated };
+      }
       const updated = [...existing, msg];
       return { ...prev, [ch]: updated.length > 500 ? updated.slice(-500) : updated };
     });
