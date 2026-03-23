@@ -185,6 +185,8 @@ class MeshtasticManager:
             db = SessionLocal()
             try:
                 msg = add_message(db, from_id, to_id, channel, text, snr=snr, rssi=rssi)
+                msg_id = msg.id
+                msg_ts = msg.timestamp.isoformat()
                 node = db.query(Node).filter_by(node_id=from_id).first()
                 from_name = node.long_name if node else None
             finally:
@@ -192,7 +194,7 @@ class MeshtasticManager:
 
             self._broadcast({
                 "type": "message",
-                "id": msg.id,
+                "id": msg_id,
                 "from_id": from_id,
                 "from_name": from_name,
                 "to_id": to_id,
@@ -200,7 +202,7 @@ class MeshtasticManager:
                 "text": text,
                 "snr": snr,
                 "rssi": rssi,
-                "timestamp": msg.timestamp.isoformat(),
+                "timestamp": msg_ts,
             })
         except Exception:
             log.exception("Error handling text packet")
@@ -246,6 +248,8 @@ class MeshtasticManager:
         db = SessionLocal()
         try:
             msg = add_message(db, from_id, "^all", channel, text)
+            msg_id = msg.id
+            msg_ts = msg.timestamp.isoformat()
             from src.models import Node
             node = db.query(Node).filter_by(node_id=from_id).first() if self._my_node_id else None
             from_name = node.long_name if node else "Base Station"
@@ -253,7 +257,7 @@ class MeshtasticManager:
             db.close()
         event = {
             "type": "message",
-            "id": msg.id,
+            "id": msg_id,
             "from_id": from_id,
             "from_name": from_name,
             "to_id": "^all",
@@ -261,7 +265,7 @@ class MeshtasticManager:
             "text": text,
             "snr": None,
             "rssi": None,
-            "timestamp": msg.timestamp.isoformat(),
+            "timestamp": msg_ts,
         }
         self._broadcast(event)
         return event
