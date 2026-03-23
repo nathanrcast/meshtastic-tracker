@@ -31,4 +31,10 @@ def init_db():
             conn.execute(text("ALTER TABLE messages ADD COLUMN rssi INTEGER"))
             conn.commit()
             log.info("Added snr/rssi columns to messages table")
+
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_position_node_timestamp ON node_positions (node_id, timestamp)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_channel_timestamp ON messages (channel, timestamp)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_from_id ON messages (from_id)"))
+        conn.commit()
+        log.info("Ensured indexes exist")
     log.info("Database initialized")
