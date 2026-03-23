@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../theme";
+import { nodeColor } from "../lib/nodeColors";
 
 const TILES = {
   hacker: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -10,26 +11,26 @@ const TILES = {
 const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
-function createIcon(online, tracked, isDark) {
+function createIcon(online, tracked, isDark, color) {
   const stroke = isDark ? "#18181b" : "#ffffff";
   const accentColor = isDark ? "#22d3ee" : "#3b82f6";
 
   if (tracked) {
-    const color = online ? "#34d399" : "#065f46";
+    const c = color || "#34d399";
     if (online) {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-        <circle cx="20" cy="20" r="18" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.2">
+        <circle cx="20" cy="20" r="18" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.2">
           <animate attributeName="r" values="10;18" dur="2s" repeatCount="indefinite"/>
           <animate attributeName="opacity" values="0.4;0" dur="2s" repeatCount="indefinite"/>
         </circle>
-        <circle cx="20" cy="20" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
-        <circle cx="20" cy="20" r="10" fill="${color}" stroke="${stroke}" stroke-width="2"/>
+        <circle cx="20" cy="20" r="14" fill="none" stroke="${c}" stroke-width="2" opacity="0.3"/>
+        <circle cx="20" cy="20" r="10" fill="${c}" stroke="${stroke}" stroke-width="2"/>
       </svg>`;
       return L.divIcon({ html: svg, className: "", iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20] });
     }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-      <circle cx="16" cy="16" r="14" fill="none" stroke="${color}" stroke-width="2" opacity="0.3"/>
-      <circle cx="16" cy="16" r="10" fill="${color}" stroke="${stroke}" stroke-width="2"/>
+      <circle cx="16" cy="16" r="14" fill="none" stroke="${c}" stroke-width="2" opacity="0.3"/>
+      <circle cx="16" cy="16" r="10" fill="${c}" stroke="${stroke}" stroke-width="2" opacity="0.5"/>
     </svg>`;
     return L.divIcon({ html: svg, className: "", iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16] });
   }
@@ -132,15 +133,20 @@ export default function Map({ nodes, trails, trackedIds }) {
       const pos = [node.lat, node.lon];
       bounds.push(pos);
       const isTracked = tracked.has(node.node_id);
+      const color = isTracked ? nodeColor(node.node_id) : null;
       const popup = buildPopup(node);
+      const label = node.long_name || node.short_name || node.node_id;
 
       if (markersRef.current[node.node_id]) {
-        markersRef.current[node.node_id].setLatLng(pos);
-        markersRef.current[node.node_id].setIcon(createIcon(node.is_online, isTracked, isDark));
-        markersRef.current[node.node_id].setPopupContent(popup);
+        const m = markersRef.current[node.node_id];
+        m.setLatLng(pos);
+        m.setIcon(createIcon(node.is_online, isTracked, isDark, color));
+        m.setPopupContent(popup);
+        if (m.getTooltip()) m.setTooltipContent(label);
       } else {
-        const marker = L.marker(pos, { icon: createIcon(node.is_online, isTracked, isDark) })
+        const marker = L.marker(pos, { icon: createIcon(node.is_online, isTracked, isDark, color) })
           .bindPopup(popup)
+          .bindTooltip(label, { permanent: true, direction: "top", offset: [0, -16], className: "mesh-node-label" })
           .addTo(map);
         markersRef.current[node.node_id] = marker;
       }
@@ -176,7 +182,7 @@ export default function Map({ nodes, trails, trackedIds }) {
       const latlngs = positions.map((p) => [p.lat, p.lon]);
       const isTracked = tracked.has(nodeId);
       const line = L.polyline(latlngs, {
-        color: isTracked ? "#34d399" : accentColor,
+        color: isTracked ? nodeColor(nodeId) : accentColor,
         weight: isTracked ? 3 : 2,
         opacity: 0.6,
         dashArray: "4 6",

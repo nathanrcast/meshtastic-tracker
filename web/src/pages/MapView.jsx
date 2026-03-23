@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, useWebSocket } from "../api";
 import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
+import { nodeColor } from "../lib/nodeColors";
 
 export default function MapView() {
   const [nodes, setNodes] = useState([]);
@@ -10,6 +11,8 @@ export default function MapView() {
   const [selectedChannel, setSelectedChannel] = useState(0);
   const [trails, setTrails] = useState({});
   const [filter, setFilter] = useState("tracked");
+  const [hiddenNodeIds, setHiddenNodeIds] = useState(new Set());
+  const [nodeListOpen, setNodeListOpen] = useState(false);
 
   useEffect(() => {
     api.nodes().then(setNodes).catch(console.error);
@@ -34,8 +37,13 @@ export default function MapView() {
   );
 
   const displayNodes = useMemo(
-    () => (filter === "tracked" ? nodes.filter((n) => n.is_tracked) : nodes),
-    [nodes, filter]
+    () => {
+      if (filter === "tracked") {
+        return nodes.filter((n) => n.is_tracked && !hiddenNodeIds.has(n.node_id));
+      }
+      return nodes;
+    },
+    [nodes, filter, hiddenNodeIds]
   );
 
   const displayNodeIds = useMemo(
@@ -126,6 +134,11 @@ export default function MapView() {
 
   useWebSocket(handleEvent);
 
+  const trackedNodes = useMemo(
+    () => nodes.filter((n) => n.is_tracked),
+    [nodes]
+  );
+
   const hasTracked = trackedIds.size > 0;
 
   return (
@@ -133,30 +146,74 @@ export default function MapView() {
       <div className="flex-1 relative">
         <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
 
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-sm shadow-lg animate-fade-in font-mono">
-          <button
-            onClick={() => setFilter("tracked")}
-            className={`px-3 py-1.5 rounded transition-colors ${
-              filter === "tracked"
-                ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
-                : "text-th-dim hover:text-th-text"
-            }`}
-          >
-            My Nodes
-          </button>
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 rounded transition-colors ${
-              filter === "all"
-                ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
-                : "text-th-dim hover:text-th-text"
-            }`}
-          >
-            All Nodes ({nodes.length})
-          </button>
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1.5 animate-fade-in">
+          <div className="flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-sm shadow-lg font-mono">
+            <button
+              onClick={() => setFilter("tracked")}
+              className={`px-3 py-1.5 rounded transition-colors ${
+                filter === "tracked"
+                  ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
+                  : "text-th-dim hover:text-th-text"
+              }`}
+            >
+              My Nodes
+            </button>
+            <button
+              onClick={() => { setFilter("all"); setHiddenNodeIds(new Set()); setNodeListOpen(false); }}
+              className={`px-3 py-1.5 rounded transition-colors ${
+                filter === "all"
+                  ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                  : "text-th-dim hover:text-th-text"
+              }`}
+            >
+              All Nodes ({nodes.length})
+            </button>
+          </div>
+
+          {filter === "tracked" && trackedNodes.length >= 2 && (
+            <div className="bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md shadow-lg font-mono text-xs">
+              <button
+                onClick={() => setNodeListOpen((o) => !o)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-th-dim hover:text-th-text transition-colors w-full"
+              >
+                <span className={`transition-transform ${nodeListOpen ? "rotate-90" : ""}`}>&#9654;</span>
+                {trackedNodes.length} tracked nodes
+              </button>
+              {nodeListOpen && (
+                <div className="border-t border-th-border px-1 py-1 space-y-0.5 max-h-48 overflow-y-auto">
+                  {trackedNodes.map((n) => {
+                    const hidden = hiddenNodeIds.has(n.node_id);
+                    const color = nodeColor(n.node_id);
+                    return (
+                      <button
+                        key={n.node_id}
+                        onClick={() => {
+                          setHiddenNodeIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(n.node_id)) next.delete(n.node_id);
+                            else next.add(n.node_id);
+                            return next;
+                          });
+                        }}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-th-hover/50 transition-colors w-full text-left"
+                      >
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 transition-opacity"
+                          style={{ backgroundColor: color, opacity: hidden ? 0.3 : 1 }}
+                        />
+                        <span className={`truncate transition-opacity ${hidden ? "line-through text-th-muted opacity-50" : "text-th-dim"}`}>
+                          {n.long_name || n.short_name || n.node_id}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {filter === "tracked" && !hasTracked && (
+        {filter === "tracked" && !hasTracked && hiddenNodeIds.size === 0 && (
           <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
             <div className="bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-lg p-6 text-center pointer-events-auto">
               <p className="text-th-body mb-2 font-mono">No tracked nodes</p>

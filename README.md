@@ -64,29 +64,32 @@ The base station stays at home, connected to your LAN, and acts as the TCP gatew
 5. Assign a static IP or DHCP reservation on your router
 6. Set `MESHTASTIC_HOST` in `.env` to this IP
 
-### 2. Secondary Private Channel (Family GPS)
+### 2. Channel Setup (Private Precise Location)
 
-Create a private channel for precise family GPS that isn't broadcast on the public mesh.
+Meshtastic only broadcasts position on the **primary channel** (index 0). To keep precise location private, make your family channel the primary and move the default public channel to a secondary slot.
 
 On the base station (via the Meshtastic app):
 
 1. Go to Settings → Channels
-2. Tap **+** to add a new channel
-3. Name it (e.g., "Family")
-4. Generate a new PSK (pre-shared key) — save this for the child devices
-5. Set position precision to **32** (full precision) on this channel
+2. Edit the **primary channel** (index 0) — rename it to your family channel name (e.g., "Family")
+3. Generate a new PSK (pre-shared key) — save this for the child devices
+4. Set position precision to **32** (full precision)
+5. Add the default public channel (e.g., LongFast) as a **secondary channel** — messaging still works on secondary channels, but your position won't broadcast there
+
+> **Why this matters:** Position broadcasts always go to the primary channel regardless of precision settings on secondary channels. If your private channel is secondary, your nodes will never broadcast position on it. Swapping the channel order is the only reliable way to get precise location on a private channel.
 
 ### 3. Child Devices (Family Members)
 
-Each family member carries a Meshtastic device (e.g., Heltec V3, T-Beam, RAK).
+Each family member carries a Meshtastic device (e.g., Heltec V3, V4, T-Beam, RAK).
 
 1. Install the [Meshtastic app](https://meshtastic.org/downloads/) and pair via Bluetooth
-2. Go to Settings → Channels → **+** to add the same secondary channel
-3. Enter the exact same channel name and PSK from step 2
-4. On the channel settings, set position precision to **32**
+2. Set the **primary channel** (index 0) to the same family channel name and PSK from step 2
+3. Set position precision to **32** on the primary channel
+4. Add any public channels (e.g., LongFast) as secondary channels
 5. Ensure GPS is enabled: Settings → Position → GPS Enabled
+6. For stationary nodes without GPS (e.g., Heltec V3 base station), set a fixed position: Settings → Position → Fixed Position
 
-The child device will now broadcast its precise location on the private channel, picked up by the base station and shown on the web map.
+The child device will now broadcast its precise location on the family primary channel, picked up by the base station and shown on the web map.
 
 ### 4. Web App — Track Family Devices
 
