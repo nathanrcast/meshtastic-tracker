@@ -3,9 +3,9 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from src.config import MESHTASTIC_HOST, MESHTASTIC_PORT, RECONNECT_INTERVAL
+from src.config import GEOFENCE_WEBHOOK_URL, MESHTASTIC_HOST, MESHTASTIC_PORT, RECONNECT_INTERVAL
 from src.db import SessionLocal
-from src.queries import add_message, update_node_position, upsert_node
+from src.queries import add_message, check_geofences, update_node_position, upsert_node
 
 log = logging.getLogger("meshtastic-web.mesh")
 
@@ -155,6 +155,7 @@ class MeshtasticManager:
             db = SessionLocal()
             try:
                 update_node_position(db, from_id, lat, lon, alt)
+                exits = check_geofences(db, from_id, lat, lon)
             finally:
                 db.close()
 
@@ -165,6 +166,16 @@ class MeshtasticManager:
                 "lon": lon,
                 "altitude": alt,
             })
+
+            for exit_info in exits:
+                self._broadcast({
+                    "type": "geofence_exit",
+                    "node_id": from_id,
+                    "node_name": exit_info["node_name"],
+                    "fence_name": exit_info["fence_name"],
+                    "distance_m": exit_info["distance_m"],
+                })
+                self._fire_geofence_webhook(from_id, exit_info)
         except Exception:
             log.exception("Error handling position packet")
 
@@ -234,6 +245,29 @@ class MeshtasticManager:
             })
         except Exception:
             log.exception("Error handling nodeinfo packet")
+
+    def _fire_geofence_webhook(self, node_id: str, exit_info: dict):
+        if not GEOFENCE_WEBHOOK_URL:
+            return
+        import json
+        import urllib.request
+        payload = json.dumps({
+            "event": "geofence_exit",
+            "node_id": node_id,
+            "node_name": exit_info["node_name"],
+            "fence_name": exit_info["fence_name"],
+            "distance_m": exit_info["distance_m"],
+        }).encode()
+        try:
+            req = urllib.request.Request(
+                GEOFENCE_WEBHOOK_URL,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            urllib.request.urlopen(req, timeout=5)
+            log.info("Geofence alert: %s exited %s", exit_info["node_name"], exit_info["fence_name"])
+        except Exception:
+            log.exception("Failed to send geofence webhook")
 
     def _on_disconnect(self, interface):
         log.warning("Lost connection to Meshtastic")

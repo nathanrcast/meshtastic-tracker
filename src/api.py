@@ -1,16 +1,22 @@
 import asyncio
+import hmac
 import logging
 import os
 
-from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
+from src.config import API_KEY, PRUNE_DAYS
 from src.db import SessionLocal, init_db
 from src.mesh import MeshtasticManager
-from src.queries import get_node_positions, get_stats, list_messages, list_nodes, set_node_tracked
-from src.schemas import SendMessage, TrackNodeRequest
+from src.queries import (
+    create_geofence, delete_geofence, get_node_positions, get_stats,
+    list_geofences, list_messages, list_nodes, prune_old_positions,
+    set_node_tracked, update_geofence,
+)
+from src.schemas import CreateGeofence, SendMessage, TrackNodeRequest, UpdateGeofence
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("meshtastic-web")
@@ -38,11 +44,29 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+# -- Auth middleware --
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if API_KEY and request.url.path.startswith("/api/") and request.url.path != "/api/health":
+        key = request.headers.get("X-API-Key", "") or request.query_params.get("key", "")
+        if not key or not hmac.compare_digest(key, API_KEY):
+            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
+    return await call_next(request)
+
+
 # -- Startup / Shutdown --
 
 @app.on_event("startup")
 def on_startup():
     init_db()
+    db = SessionLocal()
+    try:
+        count = prune_old_positions(db, PRUNE_DAYS)
+        if count:
+            log.info("Pruned %d old positions (>%d days)", count, PRUNE_DAYS)
+    finally:
+        db.close()
     mesh.start()
 
 
@@ -68,7 +92,6 @@ def api_track_node(node_id: str, body: TrackNodeRequest):
     try:
         node = set_node_tracked(db, node_id, body.is_tracked)
         if not node:
-            from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Node not found")
         return {"ok": True, "node_id": node_id, "is_tracked": body.is_tracked}
     finally:
@@ -104,7 +127,6 @@ def api_send_message(body: SendMessage):
         result = mesh.send_text(body.text, body.channel)
         return result
     except RuntimeError as e:
-        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=str(e))
 
 
@@ -132,13 +154,62 @@ def api_health():
         "node_count": stats["node_count"],
         "message_count": stats["message_count"],
         "my_node_id": mesh.my_node_id,
+        "auth_required": bool(API_KEY),
     }
+
+
+# -- Geofences --
+
+@app.get("/api/geofences")
+def api_geofences():
+    db = SessionLocal()
+    try:
+        return list_geofences(db)
+    finally:
+        db.close()
+
+
+@app.post("/api/geofences")
+def api_create_geofence(body: CreateGeofence):
+    db = SessionLocal()
+    try:
+        return create_geofence(db, body.name, body.lat, body.lon, body.radius_m)
+    finally:
+        db.close()
+
+
+@app.patch("/api/geofences/{fence_id}")
+def api_update_geofence(fence_id: int, body: UpdateGeofence):
+    db = SessionLocal()
+    try:
+        result = update_geofence(db, fence_id, **body.model_dump(exclude_none=True))
+        if not result:
+            raise HTTPException(status_code=404, detail="Geofence not found")
+        return result
+    finally:
+        db.close()
+
+
+@app.delete("/api/geofences/{fence_id}")
+def api_delete_geofence(fence_id: int):
+    db = SessionLocal()
+    try:
+        if not delete_geofence(db, fence_id):
+            raise HTTPException(status_code=404, detail="Geofence not found")
+        return {"ok": True}
+    finally:
+        db.close()
 
 
 # -- WebSocket --
 
 @app.websocket("/api/ws")
 async def websocket_endpoint(ws: WebSocket):
+    if API_KEY:
+        key = ws.query_params.get("key", "")
+        if not key or not hmac.compare_digest(key, API_KEY):
+            await ws.close(code=4001, reason="Invalid API key")
+            return
     await ws.accept()
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
     loop = asyncio.get_event_loop()
@@ -173,7 +244,6 @@ if STATIC_DIR.is_dir():
     def spa_fallback(path: str):
         file_path = (STATIC_DIR / path).resolve()
         if not (file_path == STATIC_DIR or str(file_path).startswith(str(STATIC_DIR) + os.sep)):
-            from fastapi import HTTPException
             raise HTTPException(status_code=400, detail="Invalid path")
         if file_path.is_file():
             return FileResponse(file_path)

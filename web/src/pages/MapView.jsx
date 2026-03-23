@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, useWebSocket } from "../api";
 import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
+import GeofencePanel from "../components/GeofencePanel";
 import { nodeColor } from "../lib/nodeColors";
 
 export default function MapView() {
@@ -13,6 +14,11 @@ export default function MapView() {
   const [filter, setFilter] = useState("tracked");
   const [hiddenNodeIds, setHiddenNodeIds] = useState(new Set());
   const [nodeListOpen, setNodeListOpen] = useState(false);
+  const [geofences, setGeofences] = useState([]);
+
+  const loadGeofences = useCallback(() => {
+    api.geofences().then(setGeofences).catch(console.error);
+  }, []);
 
   useEffect(() => {
     api.nodes().then(setNodes).catch(console.error);
@@ -20,7 +26,8 @@ export default function MapView() {
     api.messages(0, 100).then((msgs) => {
       setMessagesByChannel((prev) => ({ ...prev, 0: msgs }));
     }).catch(console.error);
-  }, []);
+    loadGeofences();
+  }, [loadGeofences]);
 
   useEffect(() => {
     if (messagesByChannel[selectedChannel]) return;
@@ -140,10 +147,18 @@ export default function MapView() {
 
   const hasTracked = trackedIds.size > 0;
 
+  const geofencePanel = GeofencePanel({ geofences, onUpdate: loadGeofences });
+
   return (
     <div className="flex h-[calc(100vh-3rem)] md:h-screen">
       <div className="flex-1 relative">
-        <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
+        <Map
+          nodes={displayNodes}
+          trails={trails}
+          trackedIds={trackedIds}
+          geofences={geofences}
+          onMapClick={geofencePanel.onMapClick}
+        />
 
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1.5 animate-fade-in">
           <div className="flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-xs md:text-sm shadow-lg font-mono">
@@ -210,6 +225,8 @@ export default function MapView() {
               )}
             </div>
           )}
+
+          {geofencePanel.panel}
         </div>
 
         {filter === "tracked" && !hasTracked && hiddenNodeIds.size === 0 && (

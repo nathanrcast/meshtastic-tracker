@@ -54,8 +54,24 @@ class SendMessage(BaseModel):
     channel: int = Field(default=0, ge=0, le=255)
 
 
+class CreateGeofence(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    radius_m: int = Field(ge=50, le=100000)
+
+
+class UpdateGeofence(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+    radius_m: int | None = Field(default=None, ge=50, le=100000)
+    enabled: bool | None = None
+
+
 class HealthResponse(BaseModel):
     connected: bool
     node_count: int
     message_count: int
     my_node_id: str | None = None
+    auth_required: bool = False

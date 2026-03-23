@@ -2,14 +2,27 @@ import { useEffect, useRef } from "react";
 
 const BASE = "/api";
 
+let apiKey = localStorage.getItem("meshtastic-api-key") || "";
+
 export function utc(iso) {
   if (!iso) return null;
   if (!iso.endsWith("Z") && !iso.includes("+")) return new Date(iso + "Z");
   return new Date(iso);
 }
 
+function authHeaders() {
+  const h = {};
+  if (apiKey) h["X-API-Key"] = apiKey;
+  return h;
+}
+
 async function fetchJSON(path, opts = {}) {
-  const res = await fetch(`${BASE}${path}`, opts);
+  const headers = { ...authHeaders(), ...opts.headers };
+  const res = await fetch(`${BASE}${path}`, { ...opts, headers });
+  if (res.status === 401) {
+    window.dispatchEvent(new Event("meshtastic-auth-required"));
+    throw new Error("Authentication required");
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail || `${res.status} ${res.statusText}`);
@@ -18,6 +31,12 @@ async function fetchJSON(path, opts = {}) {
 }
 
 export const api = {
+  getKey: () => apiKey,
+  setKey: (key) => {
+    apiKey = key;
+    if (key) localStorage.setItem("meshtastic-api-key", key);
+    else localStorage.removeItem("meshtastic-api-key");
+  },
   nodes: (tracked = false) => fetchJSON(`/nodes${tracked ? "?tracked=true" : ""}`),
   setTracked: (nodeId, isTracked) =>
     fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/tracked`, {
@@ -32,9 +51,13 @@ export const api = {
   sendMessage: async (text, channel = 0) => {
     const res = await fetch(`${BASE}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ text, channel }),
     });
+    if (res.status === 401) {
+      window.dispatchEvent(new Event("meshtastic-auth-required"));
+      throw new Error("Authentication required");
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       throw new Error(body?.detail || `${res.status} ${res.statusText}`);
@@ -45,6 +68,20 @@ export const api = {
   health: () => fetchJSON("/health"),
   disconnect: () => fetchJSON("/disconnect", { method: "POST" }),
   reconnect: () => fetchJSON("/reconnect", { method: "POST" }),
+  geofences: () => fetchJSON("/geofences"),
+  createGeofence: (name, lat, lon, radius_m) =>
+    fetchJSON("/geofences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, lat, lon, radius_m }),
+    }),
+  updateGeofence: (id, data) =>
+    fetchJSON(`/geofences/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }),
+  deleteGeofence: (id) => fetchJSON(`/geofences/${id}`, { method: "DELETE" }),
 };
 
 export function useWebSocket(onEvent) {
@@ -57,7 +94,8 @@ export function useWebSocket(onEvent) {
 
     function connect() {
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
-      ws = new WebSocket(`${proto}//${location.host}${BASE}/ws`);
+      const keyParam = apiKey ? `?key=${encodeURIComponent(apiKey)}` : "";
+      ws = new WebSocket(`${proto}//${location.host}${BASE}/ws${keyParam}`);
 
       ws.onmessage = (e) => {
         try {

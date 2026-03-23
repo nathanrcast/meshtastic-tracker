@@ -1,9 +1,12 @@
+import math
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from src.models import Message, Node, NodePosition
+from src.models import Geofence, Message, Node, NodePosition
 from src.config import STALE_MINUTES
+
+_geofence_state: dict[tuple[str, int], bool] = {}
 
 
 def upsert_node(db: Session, node_id: str, **kwargs) -> Node:
@@ -145,3 +148,78 @@ def mark_stale_nodes(db: Session):
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=STALE_MINUTES)
     db.query(Node).filter(Node.last_heard < cutoff, Node.is_online == 1).update({"is_online": 0})
     db.commit()
+
+
+def prune_old_positions(db: Session, days: int) -> int:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    count = db.query(NodePosition).filter(NodePosition.timestamp < cutoff).delete()
+    db.commit()
+    return count
+
+
+def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def list_geofences(db: Session) -> list[dict]:
+    fences = db.query(Geofence).all()
+    return [
+        {"id": f.id, "name": f.name, "lat": f.lat, "lon": f.lon, "radius_m": f.radius_m, "enabled": bool(f.enabled)}
+        for f in fences
+    ]
+
+
+def create_geofence(db: Session, name: str, lat: float, lon: float, radius_m: int) -> dict:
+    fence = Geofence(name=name, lat=lat, lon=lon, radius_m=radius_m)
+    db.add(fence)
+    db.commit()
+    return {"id": fence.id, "name": fence.name, "lat": fence.lat, "lon": fence.lon, "radius_m": fence.radius_m, "enabled": True}
+
+
+def update_geofence(db: Session, fence_id: int, **kwargs) -> dict | None:
+    fence = db.query(Geofence).filter(Geofence.id == fence_id).first()
+    if not fence:
+        return None
+    for k, v in kwargs.items():
+        if v is not None:
+            setattr(fence, k, 1 if k == "enabled" and v else 0 if k == "enabled" else v)
+    db.commit()
+    return {"id": fence.id, "name": fence.name, "lat": fence.lat, "lon": fence.lon, "radius_m": fence.radius_m, "enabled": bool(fence.enabled)}
+
+
+def delete_geofence(db: Session, fence_id: int) -> bool:
+    fence = db.query(Geofence).filter(Geofence.id == fence_id).first()
+    if not fence:
+        return False
+    db.delete(fence)
+    db.commit()
+    for k in [k for k in _geofence_state if k[1] == fence_id]:
+        del _geofence_state[k]
+    return True
+
+
+def check_geofences(db: Session, node_id: str, lat: float, lon: float) -> list[dict]:
+    node = db.query(Node).filter(Node.node_id == node_id).first()
+    if not node or not node.is_tracked:
+        return []
+    fences = db.query(Geofence).filter(Geofence.enabled == 1).all()
+    exits = []
+    for fence in fences:
+        dist = haversine_m(lat, lon, fence.lat, fence.lon)
+        is_inside = dist <= fence.radius_m
+        key = (node_id, fence.id)
+        was_inside = _geofence_state.get(key, True)
+        _geofence_state[key] = is_inside
+        if was_inside and not is_inside:
+            exits.append({
+                "fence_id": fence.id,
+                "fence_name": fence.name,
+                "distance_m": round(dist),
+                "node_name": node.long_name or node.short_name or node_id,
+            })
+    return exits

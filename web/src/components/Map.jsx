@@ -70,26 +70,62 @@ function timeAgo(iso) {
 }
 
 function buildPopup(node) {
-  return `
-    <div class="text-sm min-w-[160px]">
-      <div class="font-semibold text-th-text" style="font-family: var(--t-font-data)">${node.long_name || node.short_name || node.node_id}</div>
-      ${node.short_name ? `<div class="text-th-dim text-xs">${node.short_name}</div>` : ""}
-      <div class="mt-2 space-y-1 text-xs" style="font-family: var(--t-font-data)">
-        ${node.battery_level != null ? `<div class="${batteryColor(node.battery_level)}">Battery: ${node.battery_level}%</div>` : ""}
-        ${node.altitude != null ? `<div class="text-th-dim">Alt: ${node.altitude}m</div>` : ""}
-        ${node.snr != null ? `<div class="text-th-dim">SNR: ${node.snr} dB</div>` : ""}
-        <div class="text-th-muted">${timeAgo(node.last_heard)}</div>
-      </div>
-    </div>
-  `;
+  const container = document.createElement("div");
+  container.className = "text-sm min-w-[160px]";
+  container.style.fontFamily = "var(--t-font-data)";
+
+  const name = document.createElement("div");
+  name.className = "font-semibold text-th-text";
+  name.textContent = node.long_name || node.short_name || node.node_id;
+  container.appendChild(name);
+
+  if (node.short_name) {
+    const short = document.createElement("div");
+    short.className = "text-th-dim text-xs";
+    short.textContent = node.short_name;
+    container.appendChild(short);
+  }
+
+  const details = document.createElement("div");
+  details.className = "mt-2 space-y-1 text-xs";
+
+  if (node.battery_level != null) {
+    const batt = document.createElement("div");
+    batt.className = batteryColor(node.battery_level);
+    batt.textContent = `Battery: ${node.battery_level}%`;
+    details.appendChild(batt);
+  }
+
+  if (node.altitude != null) {
+    const alt = document.createElement("div");
+    alt.className = "text-th-dim";
+    alt.textContent = `Alt: ${node.altitude}m`;
+    details.appendChild(alt);
+  }
+
+  if (node.snr != null) {
+    const snr = document.createElement("div");
+    snr.className = "text-th-dim";
+    snr.textContent = `SNR: ${node.snr} dB`;
+    details.appendChild(snr);
+  }
+
+  const time = document.createElement("div");
+  time.className = "text-th-muted";
+  time.textContent = timeAgo(node.last_heard);
+  details.appendChild(time);
+
+  container.appendChild(details);
+  return container;
 }
 
-export default function Map({ nodes, trails, trackedIds }) {
+export default function Map({ nodes, trails, trackedIds, geofences, onMapClick }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const tileRef = useRef(null);
   const markersRef = useRef({});
   const trailsRef = useRef({});
+  const fenceLayersRef = useRef({});
   const [hasFitBounds, setHasFitBounds] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === "hacker";
@@ -122,6 +158,15 @@ export default function Map({ nodes, trails, trackedIds }) {
     const url = TILES[theme] || TILES.hacker;
     tileRef.current.setUrl(url);
   }, [theme]);
+
+  // Map click handler for geofence placement
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !onMapClick) return;
+    const handler = (e) => onMapClick({ lat: e.latlng.lat, lon: e.latlng.lng });
+    map.on("click", handler);
+    return () => map.off("click", handler);
+  }, [onMapClick]);
 
   // Update markers
   useEffect(() => {
@@ -196,6 +241,35 @@ export default function Map({ nodes, trails, trackedIds }) {
       trailsRef.current[nodeId] = line;
     }
   }, [trails, trackedIds, isDark]);
+
+  // Geofence circles
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const layer of Object.values(fenceLayersRef.current)) {
+      map.removeLayer(layer);
+    }
+    fenceLayersRef.current = {};
+
+    if (!geofences) return;
+
+    const fenceColor = isDark ? "#f59e0b" : "#d97706";
+    for (const fence of geofences) {
+      if (!fence.enabled) continue;
+      const circle = L.circle([fence.lat, fence.lon], {
+        radius: fence.radius_m,
+        color: fenceColor,
+        weight: 2,
+        opacity: 0.6,
+        fillColor: fenceColor,
+        fillOpacity: 0.08,
+        dashArray: "6 4",
+      }).addTo(map);
+      circle.bindTooltip(fence.name, { direction: "center", className: "mesh-node-label" });
+      fenceLayersRef.current[fence.id] = circle;
+    }
+  }, [geofences, isDark]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

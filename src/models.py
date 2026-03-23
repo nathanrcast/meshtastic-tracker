@@ -42,6 +42,17 @@ class NodePosition(Base):
     node = relationship("Node", back_populates="positions")
 
 
+class Geofence(Base):
+    __tablename__ = "geofences"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    lat = Column(Float, nullable=False)
+    lon = Column(Float, nullable=False)
+    radius_m = Column(Integer, nullable=False)
+    enabled = Column(Integer, default=1)
+
+
 class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
