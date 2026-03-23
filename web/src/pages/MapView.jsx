@@ -106,6 +106,18 @@ export default function MapView() {
       });
     } else if (event.type === "message") {
       addMessage(event);
+    } else if (event.type === "reaction") {
+      setMessagesByChannel((prev) => {
+        const updated = {};
+        for (const [ch, msgs] of Object.entries(prev)) {
+          updated[ch] = msgs.map((m) =>
+            m.packet_id === event.message_packet_id
+              ? { ...m, reactions: [...(m.reactions || []), { from_id: event.from_id, emoji: event.emoji }] }
+              : m
+          );
+        }
+        return updated;
+      });
     } else if (event.type === "node_update") {
       setNodes((prev) => {
         const exists = prev.some((n) => n.node_id === event.node_id);
@@ -144,6 +156,10 @@ export default function MapView() {
     () => nodes.filter((n) => n.is_tracked),
     [nodes]
   );
+
+  const handleReact = useCallback((packetId, emoji, channel = 0) => {
+    api.react(packetId, emoji, channel).catch(console.error);
+  }, []);
 
   const hasTracked = trackedIds.size > 0;
 
@@ -251,6 +267,7 @@ export default function MapView() {
         selectedChannel={selectedChannel}
         onChannelChange={setSelectedChannel}
         onMessageSent={addMessage}
+        onReact={handleReact}
       />
     </div>
   );

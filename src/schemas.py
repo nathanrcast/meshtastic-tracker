@@ -34,6 +34,11 @@ class PositionResponse(BaseModel):
         from_attributes = True
 
 
+class ReactionResponse(BaseModel):
+    from_id: str
+    emoji: str
+
+
 class MessageResponse(BaseModel):
     id: int
     from_id: str
@@ -41,9 +46,11 @@ class MessageResponse(BaseModel):
     to_id: str
     channel: int
     text: str
+    packet_id: int | None = None
     snr: float | None = None
     rssi: int | None = None
     timestamp: str
+    reactions: list[ReactionResponse] = []
 
     class Config:
         from_attributes = True
@@ -51,6 +58,11 @@ class MessageResponse(BaseModel):
 
 class SendMessage(BaseModel):
     text: str = Field(min_length=1, max_length=228)
+    channel: int = Field(default=0, ge=0, le=255)
+
+
+class SendReaction(BaseModel):
+    emoji: str = Field(min_length=1, max_length=4)
     channel: int = Field(default=0, ge=0, le=255)
 
 

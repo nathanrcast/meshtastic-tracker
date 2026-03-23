@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from src.models import Geofence, Message, Node, NodePosition
+from src.models import Geofence, Message, Node, NodePosition, Reaction
 from src.config import STALE_MINUTES
 
 _geofence_state: dict[tuple[str, int], bool] = {}
@@ -36,7 +36,7 @@ def update_node_position(db: Session, node_id: str, lat: float, lon: float, alti
     db.commit()
 
 
-def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, snr: float | None = None, rssi: int | None = None) -> Message:
+def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, snr: float | None = None, rssi: int | None = None, packet_id: int | None = None) -> Message:
     msg = Message(
         from_id=from_id,
         to_id=to_id,
@@ -44,11 +44,37 @@ def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, 
         text=text,
         snr=snr,
         rssi=rssi,
+        packet_id=packet_id,
         timestamp=datetime.now(timezone.utc),
     )
     db.add(msg)
     db.commit()
     return msg
+
+
+def add_reaction(db: Session, message_packet_id: int, from_id: str, emoji: str) -> Reaction:
+    reaction = Reaction(
+        message_packet_id=message_packet_id,
+        from_id=from_id,
+        emoji=emoji,
+        timestamp=datetime.now(timezone.utc),
+    )
+    db.add(reaction)
+    db.commit()
+    return reaction
+
+
+def get_reactions_by_packet_ids(db: Session, packet_ids: list[int]) -> dict[int, list[dict]]:
+    if not packet_ids:
+        return {}
+    reactions = db.query(Reaction).filter(Reaction.message_packet_id.in_(packet_ids)).all()
+    grouped: dict[int, list[dict]] = {}
+    for r in reactions:
+        grouped.setdefault(r.message_packet_id, []).append({
+            "from_id": r.from_id,
+            "emoji": r.emoji,
+        })
+    return grouped
 
 
 def list_nodes(db: Session, tracked_only: bool = False) -> list[dict]:
@@ -113,6 +139,8 @@ def list_messages(db: Session, channel: int = 0, limit: int = 100) -> list[dict]
         .limit(limit)
         .all()
     )
+    packet_ids = [m.packet_id for m in msgs if m.packet_id is not None]
+    reactions_map = get_reactions_by_packet_ids(db, packet_ids)
     node_cache: dict[str, str] = {}
     result = []
     for m in reversed(msgs):
@@ -126,9 +154,11 @@ def list_messages(db: Session, channel: int = 0, limit: int = 100) -> list[dict]
             "to_id": m.to_id,
             "channel": m.channel,
             "text": m.text,
+            "packet_id": m.packet_id,
             "snr": m.snr,
             "rssi": m.rssi,
             "timestamp": m.timestamp.isoformat(),
+            "reactions": reactions_map.get(m.packet_id, []) if m.packet_id else [],
         })
     return result
 

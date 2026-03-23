@@ -64,6 +64,12 @@ export const api = {
     }
     return res.json();
   },
+  react: (packetId, emoji, channel = 0) =>
+    fetchJSON(`/messages/${packetId}/react`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji, channel }),
+    }),
   channels: () => fetchJSON("/channels"),
   health: () => fetchJSON("/health"),
   disconnect: () => fetchJSON("/disconnect", { method: "POST" }),

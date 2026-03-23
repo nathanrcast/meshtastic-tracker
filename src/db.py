@@ -32,9 +32,30 @@ def init_db():
             conn.commit()
             log.info("Added snr/rssi columns to messages table")
 
+        if "packet_id" not in msg_cols:
+            conn.execute(text("ALTER TABLE messages ADD COLUMN packet_id INTEGER"))
+            conn.commit()
+            log.info("Added packet_id column to messages table")
+
+        tables = [r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))]
+        if "reactions" not in tables:
+            conn.execute(text("""
+                CREATE TABLE reactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_packet_id INTEGER NOT NULL,
+                    from_id VARCHAR(20) NOT NULL,
+                    emoji VARCHAR(16) NOT NULL,
+                    timestamp DATETIME
+                )
+            """))
+            conn.commit()
+            log.info("Created reactions table")
+
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_position_node_timestamp ON node_positions (node_id, timestamp)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_channel_timestamp ON messages (channel, timestamp)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_from_id ON messages (from_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_packet_id ON messages (packet_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_reaction_message_packet_id ON reactions (message_packet_id)"))
         conn.commit()
         log.info("Ensured indexes exist")
     log.info("Database initialized")

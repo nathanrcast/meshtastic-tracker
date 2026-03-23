@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from src.config import GEOFENCE_WEBHOOK_URL, MESHTASTIC_HOST, MESHTASTIC_PORT, RECONNECT_INTERVAL
 from src.db import SessionLocal
-from src.queries import add_message, check_geofences, update_node_position, upsert_node
+from src.queries import add_message, add_reaction, check_geofences, update_node_position, upsert_node
 
 log = logging.getLogger("meshtastic-web.mesh")
 
@@ -184,18 +184,38 @@ class MeshtasticManager:
             from_id = packet.get("fromId", "")
             to_id = packet.get("toId", "")
             channel = packet.get("channel", 0)
-            text = packet.get("decoded", {}).get("text", "")
+            decoded = packet.get("decoded", {})
+            text = decoded.get("text", "")
             snr = packet.get("rxSnr")
             rssi = packet.get("rxRssi")
+            pkt_id = packet.get("id")
 
             if not text:
+                return
+
+            is_emoji = decoded.get("emoji")
+            reply_id = decoded.get("replyId") or decoded.get("reply_id")
+
+            if is_emoji and reply_id:
+                db = SessionLocal()
+                try:
+                    add_reaction(db, reply_id, from_id, text)
+                finally:
+                    db.close()
+
+                self._broadcast({
+                    "type": "reaction",
+                    "message_packet_id": reply_id,
+                    "from_id": from_id,
+                    "emoji": text,
+                })
                 return
 
             from src.models import Node
 
             db = SessionLocal()
             try:
-                msg = add_message(db, from_id, to_id, channel, text, snr=snr, rssi=rssi)
+                msg = add_message(db, from_id, to_id, channel, text, snr=snr, rssi=rssi, packet_id=pkt_id)
                 msg_id = msg.id
                 msg_ts = msg.timestamp.isoformat()
                 node = db.query(Node).filter_by(node_id=from_id).first()
@@ -211,9 +231,11 @@ class MeshtasticManager:
                 "to_id": to_id,
                 "channel": channel,
                 "text": text,
+                "packet_id": pkt_id,
                 "snr": snr,
                 "rssi": rssi,
                 "timestamp": msg_ts,
+                "reactions": [],
             })
         except Exception:
             log.exception("Error handling text packet")
@@ -277,11 +299,12 @@ class MeshtasticManager:
     def send_text(self, text: str, channel: int = 0) -> dict:
         if not self._interface or not self._connected:
             raise RuntimeError("Not connected to Meshtastic")
-        self._interface.sendText(text, channelIndex=channel)
+        result = self._interface.sendText(text, channelIndex=channel)
+        pkt_id = result.id if result else None
         from_id = self._my_node_id or "local"
         db = SessionLocal()
         try:
-            msg = add_message(db, from_id, "^all", channel, text)
+            msg = add_message(db, from_id, "^all", channel, text, packet_id=pkt_id)
             msg_id = msg.id
             msg_ts = msg.timestamp.isoformat()
             from src.models import Node
@@ -297,9 +320,43 @@ class MeshtasticManager:
             "to_id": "^all",
             "channel": channel,
             "text": text,
+            "packet_id": pkt_id,
             "snr": None,
             "rssi": None,
             "timestamp": msg_ts,
+            "reactions": [],
+        }
+        self._broadcast(event)
+        return event
+
+    def send_reaction(self, emoji: str, reply_to_packet_id: int, channel: int = 0) -> dict:
+        if not self._interface or not self._connected:
+            raise RuntimeError("Not connected to Meshtastic")
+
+        from meshtastic.mesh_pb2 import MeshPacket
+        from meshtastic.portnums_pb2 import PortNum
+
+        packet = MeshPacket()
+        packet.decoded.portnum = PortNum.TEXT_MESSAGE_APP
+        packet.decoded.payload = emoji.encode("utf-8")
+        packet.decoded.emoji = 1
+        packet.decoded.reply_id = reply_to_packet_id
+        packet.channel = channel
+
+        self._interface._sendPacket(packet)
+
+        from_id = self._my_node_id or "local"
+        db = SessionLocal()
+        try:
+            add_reaction(db, reply_to_packet_id, from_id, emoji)
+        finally:
+            db.close()
+
+        event = {
+            "type": "reaction",
+            "message_packet_id": reply_to_packet_id,
+            "from_id": from_id,
+            "emoji": emoji,
         }
         self._broadcast(event)
         return event

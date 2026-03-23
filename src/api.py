@@ -16,7 +16,7 @@ from src.queries import (
     list_geofences, list_messages, list_nodes, prune_old_positions,
     set_node_tracked, update_geofence,
 )
-from src.schemas import CreateGeofence, SendMessage, TrackNodeRequest, UpdateGeofence
+from src.schemas import CreateGeofence, SendMessage, SendReaction, TrackNodeRequest, UpdateGeofence
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("meshtastic-web")
@@ -125,6 +125,15 @@ def api_messages(channel: int = Query(default=0, ge=0, le=255), limit: int = Que
 def api_send_message(body: SendMessage):
     try:
         result = mesh.send_text(body.text, body.channel)
+        return result
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.post("/api/messages/{packet_id}/react")
+def api_react(packet_id: int, body: SendReaction):
+    try:
+        result = mesh.send_reaction(body.emoji, packet_id, body.channel)
         return result
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))

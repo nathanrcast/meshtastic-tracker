@@ -58,6 +58,7 @@ class Message(Base):
     __table_args__ = (
         Index("idx_message_channel_timestamp", "channel", "timestamp"),
         Index("idx_message_from_id", "from_id"),
+        Index("idx_message_packet_id", "packet_id"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -65,6 +66,20 @@ class Message(Base):
     to_id = Column(String(20), default="")
     channel = Column(Integer, default=0)
     text = Column(Text, default="")
+    packet_id = Column(Integer, nullable=True)
     snr = Column(Float, nullable=True)
     rssi = Column(Integer, nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Reaction(Base):
+    __tablename__ = "reactions"
+    __table_args__ = (
+        Index("idx_reaction_message_packet_id", "message_packet_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_packet_id = Column(Integer, nullable=False)
+    from_id = Column(String(20), nullable=False)
+    emoji = Column(String(16), nullable=False)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

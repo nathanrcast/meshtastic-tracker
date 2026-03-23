@@ -28,12 +28,15 @@ const EMOJI_GROUPS = [
   { label: "Nature", emojis: ["🌧️", "☀️", "🌙", "⛰️", "🌊", "🏕️", "🌲", "🐻", "🦌", "🐍", "🦅", "🐺"] },
 ];
 
-export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent }) {
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "👎", "🔥", "👋"];
+
+export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent, onReact }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenChannels, setHiddenChannels] = useState(loadHiddenChannels);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [hoveredMsgId, setHoveredMsgId] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -179,24 +182,67 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {messages.map((msg) => (
-              <div key={msg.id} className="text-sm">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-th-accent"}`}>
-                    {msg.from_name || msg.from_id}
-                  </span>
-                  <span className="text-th-faint text-xs font-mono">{formatTime(msg.timestamp)}</span>
-                  {(msg.snr != null || msg.rssi != null) && (
-                    <span className="text-th-muted text-xs font-mono">
-                      {msg.snr != null && `${msg.snr} dB`}
-                      {msg.snr != null && msg.rssi != null && " / "}
-                      {msg.rssi != null && `${msg.rssi} dBm`}
+            {messages.map((msg) => {
+              const grouped = {};
+              if (msg.reactions) {
+                for (const r of msg.reactions) {
+                  grouped[r.emoji] = (grouped[r.emoji] || 0) + 1;
+                }
+              }
+              const hasReactions = Object.keys(grouped).length > 0;
+              return (
+                <div
+                  key={msg.id}
+                  className="text-sm relative group"
+                  onMouseEnter={() => setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => setHoveredMsgId(null)}
+                >
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-th-accent"}`}>
+                      {msg.from_name || msg.from_id}
                     </span>
+                    <span className="text-th-faint text-xs font-mono">{formatTime(msg.timestamp)}</span>
+                    {(msg.snr != null || msg.rssi != null) && (
+                      <span className="text-th-muted text-xs font-mono">
+                        {msg.snr != null && `${msg.snr} dB`}
+                        {msg.snr != null && msg.rssi != null && " / "}
+                        {msg.rssi != null && `${msg.rssi} dBm`}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-th-body break-words">{msg.text}</p>
+                  {hasReactions && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {Object.entries(grouped).map(([emoji, count]) => (
+                        <button
+                          key={emoji}
+                          onClick={() => msg.packet_id && onReact?.(msg.packet_id, emoji, msg.channel)}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs bg-th-elevated border border-th-border hover:border-th-accent-border transition-colors"
+                          title={`React with ${emoji}`}
+                        >
+                          <span>{emoji}</span>
+                          <span className="text-th-muted font-mono">{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {msg.packet_id && hoveredMsgId === msg.id && (
+                    <div className="absolute right-0 top-0 flex gap-0.5 bg-th-surface border border-th-border rounded shadow-lg p-0.5 z-10">
+                      {QUICK_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => onReact?.(msg.packet_id, emoji, msg.channel)}
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-th-hover transition-colors text-sm"
+                          title={emoji}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <p className="text-th-body break-words">{msg.text}</p>
-              </div>
-            ))}
+              );
+            })}
             <div ref={bottomRef} />
           </div>
 
