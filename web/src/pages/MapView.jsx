@@ -147,10 +147,10 @@ export default function MapView() {
         <Map nodes={displayNodes} trails={trails} trackedIds={trackedIds} />
 
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1.5 animate-fade-in">
-          <div className="flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-sm shadow-lg font-mono">
+          <div className="flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-xs md:text-sm shadow-lg font-mono">
             <button
               onClick={() => setFilter("tracked")}
-              className={`px-3 py-1.5 rounded transition-colors ${
+              className={`px-2 py-1 md:px-3 md:py-1.5 rounded transition-colors ${
                 filter === "tracked"
                   ? "bg-emerald-900/50 text-emerald-300 ring-1 ring-emerald-700"
                   : "text-th-dim hover:text-th-text"
@@ -160,7 +160,7 @@ export default function MapView() {
             </button>
             <button
               onClick={() => { setFilter("all"); setHiddenNodeIds(new Set()); setNodeListOpen(false); }}
-              className={`px-3 py-1.5 rounded transition-colors ${
+              className={`px-2 py-1 md:px-3 md:py-1.5 rounded transition-colors ${
                 filter === "all"
                   ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
                   : "text-th-dim hover:text-th-text"

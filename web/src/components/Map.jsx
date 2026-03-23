@@ -104,7 +104,11 @@ export default function Map({ nodes, trails, trackedIds }) {
     tileRef.current = L.tileLayer(TILES[theme] || TILES.hacker, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
     mapRef.current = map;
 
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(containerRef.current);
+
     return () => {
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
       tileRef.current = null;
