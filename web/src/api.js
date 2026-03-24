@@ -44,8 +44,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_tracked: isTracked }),
     }),
-  nodePositions: (nodeId, hours = 24) =>
-    fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/positions?hours=${hours}`),
+  nodePositions: (nodeId, hours = 24, { start, end } = {}) => {
+    const params = start && end
+      ? `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
+      : `hours=${hours}`;
+    return fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/positions?${params}`);
+  },
   messages: (channel = 0, limit = 100) =>
     fetchJSON(`/messages?channel=${channel}&limit=${limit}`),
   sendMessage: async (text, channel = 0) => {

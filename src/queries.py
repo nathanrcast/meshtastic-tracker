@@ -112,14 +112,16 @@ def set_node_tracked(db: Session, node_id: str, tracked: bool) -> Node | None:
     return node
 
 
-def get_node_positions(db: Session, node_id: str, hours: int = 24) -> list[dict]:
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-    positions = (
-        db.query(NodePosition)
-        .filter(NodePosition.node_id == node_id, NodePosition.timestamp >= cutoff)
-        .order_by(NodePosition.timestamp.asc())
-        .all()
-    )
+def get_node_positions(db: Session, node_id: str, hours: int = 24, start: datetime | None = None, end: datetime | None = None) -> list[dict]:
+    query = db.query(NodePosition).filter(NodePosition.node_id == node_id)
+    if start is not None:
+        query = query.filter(NodePosition.timestamp >= start)
+        if end is not None:
+            query = query.filter(NodePosition.timestamp <= end)
+    else:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        query = query.filter(NodePosition.timestamp >= cutoff)
+    positions = query.order_by(NodePosition.timestamp.asc()).all()
     return [
         {
             "lat": p.lat,

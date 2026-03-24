@@ -147,10 +147,18 @@ def api_track_node(node_id: str, body: TrackNodeRequest):
 
 
 @app.get("/api/nodes/{node_id}/positions")
-def api_node_positions(node_id: str, hours: int = Query(default=24, ge=1, le=168)):
+def api_node_positions(
+    node_id: str,
+    hours: int = Query(default=24, ge=1, le=720),
+    start: str | None = Query(default=None),
+    end: str | None = Query(default=None),
+):
+    from datetime import datetime as dt, timezone as tz
+    start_dt = dt.fromisoformat(start).replace(tzinfo=tz.utc) if start else None
+    end_dt = dt.fromisoformat(end).replace(tzinfo=tz.utc) if end else None
     db = SessionLocal()
     try:
-        return get_node_positions(db, node_id, hours)
+        return get_node_positions(db, node_id, hours, start=start_dt, end=end_dt)
     finally:
         db.close()
 

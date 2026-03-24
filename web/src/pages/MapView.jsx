@@ -15,6 +15,10 @@ export default function MapView() {
   const [hiddenNodeIds, setHiddenNodeIds] = useState(new Set());
   const [nodeListOpen, setNodeListOpen] = useState(false);
   const [geofences, setGeofences] = useState([]);
+  const [trailHours, setTrailHours] = useState(24);
+  const [trailMode, setTrailMode] = useState("preset"); // "preset" | "custom"
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const loadGeofences = useCallback(() => {
     api.geofences().then(setGeofences).catch(console.error);
@@ -64,9 +68,13 @@ export default function MapView() {
       return;
     }
     const ids = displayNodeIds.split(",");
+    const opts = trailMode === "custom" && customStart && customEnd
+      ? { start: new Date(customStart).toISOString(), end: new Date(customEnd).toISOString() }
+      : {};
+    const hours = trailMode === "preset" ? trailHours : 24;
     Promise.all(
       ids.map((id) =>
-        api.nodePositions(id, 24).then((positions) => [id, positions])
+        api.nodePositions(id, hours, opts).then((positions) => [id, positions])
       )
     ).then((results) => {
       const trailMap = {};
@@ -75,7 +83,7 @@ export default function MapView() {
       }
       setTrails(trailMap);
     });
-  }, [displayNodeIds]);
+  }, [displayNodeIds, trailHours, trailMode, customStart, customEnd]);
 
   const pendingIdRef = useRef(null);
 
@@ -207,6 +215,58 @@ export default function MapView() {
             >
               All Nodes ({nodes.length})
             </button>
+          </div>
+
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-xs shadow-lg font-mono">
+              {[
+                { label: "1h", hours: 1 },
+                { label: "6h", hours: 6 },
+                { label: "24h", hours: 24 },
+                { label: "3d", hours: 72 },
+                { label: "7d", hours: 168 },
+                { label: "30d", hours: 720 },
+              ].map(({ label, hours }) => (
+                <button
+                  key={label}
+                  onClick={() => { setTrailMode("preset"); setTrailHours(hours); }}
+                  className={`px-2 py-1 rounded transition-colors ${
+                    trailMode === "preset" && trailHours === hours
+                      ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                      : "text-th-dim hover:text-th-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                onClick={() => setTrailMode("custom")}
+                className={`px-2 py-1 rounded transition-colors ${
+                  trailMode === "custom"
+                    ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                    : "text-th-dim hover:text-th-text"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {trailMode === "custom" && (
+              <div className="flex items-center gap-1.5 bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md px-2 py-1.5 text-xs shadow-lg font-mono">
+                <input
+                  type="datetime-local"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="bg-th-bg border border-th-border rounded px-1.5 py-0.5 text-th-text text-xs"
+                />
+                <span className="text-th-muted">&rarr;</span>
+                <input
+                  type="datetime-local"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="bg-th-bg border border-th-border rounded px-1.5 py-0.5 text-th-text text-xs"
+                />
+              </div>
+            )}
           </div>
 
           {filter === "tracked" && trackedNodes.length >= 2 && (
