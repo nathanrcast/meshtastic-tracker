@@ -1,7 +1,11 @@
 [project]
-name = "meshtastic-web"
+name = "meshtastic-tracker"
 version = "0.1.0"
+description = "Self-hosted web dashboard for monitoring Meshtastic LoRa mesh networks"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.12"
+keywords = ["meshtastic", "lora", "gps", "tracking", "mesh-network", "iot"]
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",

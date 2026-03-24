@@ -1,6 +1,6 @@
-# Meshtastic Web
+# Meshtastic Tracker
 
-A self-hosted web dashboard for monitoring Meshtastic LoRa mesh networks. Always-on TCP gateway with persistent position history, movement trails, multi-channel messaging, and geofence alerts.
+A self-hosted web dashboard for monitoring Meshtastic LoRa mesh networks. Always-on TCP gateway with persistent position history, movement trails, multi-channel messaging, emoji reactions, and geofence alerts.
 
 ## How is this different from the official Meshtastic web client?
 
@@ -22,7 +22,7 @@ This project runs a **persistent backend** that connects to your radio over TCP 
 ## Features
 
 - **Real-time map** with node markers, movement trail polylines, and geofence circles (Leaflet + CartoDB)
-- **Multi-channel messaging** with send/receive across primary and secondary channels
+- **Multi-channel messaging** with send/receive, emoji reactions, and drag-to-reorder channel tabs
 - **Node tracking** — star devices to filter the map to "My Nodes" with per-node visibility toggles
 - **Position history** — SQLite stores days/weeks of positions, configurable auto-pruning
 - **Geofence alerts** — define geographic boundaries, get webhook notifications when tracked nodes leave
@@ -47,8 +47,8 @@ React SPA (Vite + Tailwind + Leaflet)
 ## Quick Start
 
 ```bash
-git clone https://github.com/nathanrcast/meshtastic-web.git
-cd meshtastic-web
+git clone https://github.com/nathanrcast/meshtastic-tracker.git
+cd meshtastic-tracker
 cp .env.example .env
 # Edit .env — set MESHTASTIC_HOST to your device's IP
 docker compose up -d --build
@@ -72,7 +72,7 @@ Open `http://<your-host>:8200` in a browser.
 | `STALE_MINUTES` | `15` | Minutes before a node is marked offline |
 | `DATABASE_URL` | `sqlite:///data/meshtastic.db` | SQLAlchemy database URL |
 | `API_KEY` | *(empty — auth disabled)* | Shared API key. If set, all endpoints except `/api/health` require `X-API-Key` header |
-| `PRUNE_DAYS` | `30` | Auto-delete position records older than this many days (runs on startup) |
+| `PRUNE_DAYS` | `30` | Auto-delete positions, messages, and reactions older than this many days (runs on startup) |
 | `GEOFENCE_WEBHOOK_URL` | *(empty — disabled)* | URL to POST a JSON payload when a tracked node exits a geofence |
 
 ### Geofence Webhook Payload
@@ -144,12 +144,13 @@ Each device that should appear on the map:
 | `GET` | `/api/channels` | Active channels from device |
 | `GET` | `/api/messages` | Messages (`?channel=0&limit=100`) |
 | `POST` | `/api/messages` | Send a message (`{"text": "...", "channel": 0}`) |
+| `POST` | `/api/messages/{packet_id}/react` | Send an emoji reaction (`{"emoji": "👍"}`) |
 | `GET` | `/api/geofences` | List all geofences |
 | `POST` | `/api/geofences` | Create a geofence |
 | `PATCH` | `/api/geofences/{id}` | Update a geofence |
 | `DELETE` | `/api/geofences/{id}` | Delete a geofence |
 | `GET` | `/api/health` | Health check (always open, no auth required) |
-| `WS` | `/api/ws` | Real-time events (position, message, node_update, geofence_exit) |
+| `WS` | `/api/ws` | Real-time events (position, message, reaction, node_update, geofence_exit) |
 
 ## License
 
