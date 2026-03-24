@@ -187,6 +187,14 @@ def prune_old_positions(db: Session, days: int) -> int:
     return count
 
 
+def prune_old_messages(db: Session, days: int) -> int:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    msg_count = db.query(Message).filter(Message.timestamp < cutoff).delete()
+    rxn_count = db.query(Reaction).filter(Reaction.timestamp < cutoff).delete()
+    db.commit()
+    return msg_count + rxn_count
+
+
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)

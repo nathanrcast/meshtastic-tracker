@@ -271,6 +271,9 @@ class MeshtasticManager:
     def _fire_geofence_webhook(self, node_id: str, exit_info: dict):
         if not GEOFENCE_WEBHOOK_URL:
             return
+        if not GEOFENCE_WEBHOOK_URL.startswith(("http://", "https://")):
+            log.warning("Ignoring non-HTTP webhook URL")
+            return
         import json
         import urllib.request
         payload = json.dumps({
