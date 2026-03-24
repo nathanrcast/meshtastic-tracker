@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, useWebSocket } from "../api";
 import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
@@ -77,18 +77,19 @@ export default function MapView() {
     });
   }, [displayNodeIds]);
 
+  const pendingIdRef = useRef(null);
+
   const addMessage = useCallback((msg) => {
     const ch = msg.channel ?? 0;
+    const isPending = typeof msg.id === "string" && msg.id.startsWith("pending-");
+    if (isPending) pendingIdRef.current = msg.id;
     setMessagesByChannel((prev) => {
       const existing = prev[ch] || [];
       if (existing.some((m) => m.id === msg.id)) return prev;
-      // If this is the real message replacing an optimistic one, swap it in
-      const isPending = String(msg.id).startsWith?.("pending-");
-      if (!isPending && existing.some((m) => String(m.id).startsWith("pending-") && m.text === msg.text)) {
-        const updated = existing.map((m) =>
-          String(m.id).startsWith("pending-") && m.text === msg.text ? msg : m
-        );
-        return { ...prev, [ch]: updated };
+      // Replace the optimistic pending message with the real one
+      if (!isPending && pendingIdRef.current && existing.some((m) => m.id === pendingIdRef.current)) {
+        pendingIdRef.current = null;
+        return { ...prev, [ch]: existing.map((m) => (typeof m.id === "string" && m.id.startsWith("pending-") ? msg : m)) };
       }
       const updated = [...existing, msg];
       return { ...prev, [ch]: updated.length > 500 ? updated.slice(-500) : updated };
