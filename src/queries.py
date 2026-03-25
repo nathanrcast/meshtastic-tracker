@@ -36,7 +36,7 @@ def update_node_position(db: Session, node_id: str, lat: float, lon: float, alti
     db.commit()
 
 
-def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, snr: float | None = None, rssi: int | None = None, packet_id: int | None = None) -> Message:
+def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, snr: float | None = None, rssi: int | None = None, packet_id: int | None = None, hops: int | None = None) -> Message:
     msg = Message(
         from_id=from_id,
         to_id=to_id,
@@ -44,6 +44,7 @@ def add_message(db: Session, from_id: str, to_id: str, channel: int, text: str, 
         text=text,
         snr=snr,
         rssi=rssi,
+        hops=hops,
         packet_id=packet_id,
         timestamp=datetime.now(timezone.utc),
     )
@@ -159,6 +160,7 @@ def list_messages(db: Session, channel: int = 0, limit: int = 100) -> list[dict]
             "packet_id": m.packet_id,
             "snr": m.snr,
             "rssi": m.rssi,
+            "hops": m.hops,
             "timestamp": m.timestamp.isoformat(),
             "reactions": reactions_map.get(m.packet_id, []) if m.packet_id else [],
         })

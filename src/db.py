@@ -32,6 +32,11 @@ def init_db():
             conn.commit()
             log.info("Added snr/rssi columns to messages table")
 
+        if "hops" not in msg_cols:
+            conn.execute(text("ALTER TABLE messages ADD COLUMN hops INTEGER"))
+            conn.commit()
+            log.info("Added hops column to messages table")
+
         if "packet_id" not in msg_cols:
             conn.execute(text("ALTER TABLE messages ADD COLUMN packet_id INTEGER"))
             conn.commit()

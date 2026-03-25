@@ -189,6 +189,9 @@ class MeshtasticManager:
             snr = packet.get("rxSnr")
             rssi = packet.get("rxRssi")
             pkt_id = packet.get("id")
+            hop_start = packet.get("hopStart", 0)
+            hop_limit = packet.get("hopLimit", 0)
+            hops = (hop_start - hop_limit) if hop_start else None
 
             if not text:
                 return
@@ -215,7 +218,7 @@ class MeshtasticManager:
 
             db = SessionLocal()
             try:
-                msg = add_message(db, from_id, to_id, channel, text, snr=snr, rssi=rssi, packet_id=pkt_id)
+                msg = add_message(db, from_id, to_id, channel, text, snr=snr, rssi=rssi, packet_id=pkt_id, hops=hops)
                 msg_id = msg.id
                 msg_ts = msg.timestamp.isoformat()
                 node = db.query(Node).filter_by(node_id=from_id).first()
@@ -234,6 +237,7 @@ class MeshtasticManager:
                 "packet_id": pkt_id,
                 "snr": snr,
                 "rssi": rssi,
+                "hops": hops,
                 "timestamp": msg_ts,
                 "reactions": [],
             })
@@ -326,6 +330,7 @@ class MeshtasticManager:
             "packet_id": pkt_id,
             "snr": None,
             "rssi": None,
+            "hops": None,
             "timestamp": msg_ts,
             "reactions": [],
         }

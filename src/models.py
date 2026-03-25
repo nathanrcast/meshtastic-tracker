@@ -69,6 +69,7 @@ class Message(Base):
     packet_id = Column(Integer, nullable=True)
     snr = Column(Float, nullable=True)
     rssi = Column(Integer, nullable=True)
+    hops = Column(Integer, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

@@ -256,8 +256,10 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                       {msg.from_name || msg.from_id}
                     </span>
                     <span className="text-th-faint text-xs font-mono">{formatTime(msg.timestamp)}</span>
-                    {(msg.snr != null || msg.rssi != null) && (
+                    {(msg.snr != null || msg.rssi != null || msg.hops != null) && (
                       <span className="text-th-muted text-xs font-mono">
+                        {msg.hops != null && `${msg.hops} hop${msg.hops !== 1 ? "s" : ""}`}
+                        {msg.hops != null && (msg.snr != null || msg.rssi != null) && " / "}
                         {msg.snr != null && `${msg.snr} dB`}
                         {msg.snr != null && msg.rssi != null && " / "}
                         {msg.rssi != null && `${msg.rssi} dBm`}
