@@ -15,6 +15,7 @@ export default function MapView() {
   const [hiddenNodeIds, setHiddenNodeIds] = useState(new Set());
   const [nodeListOpen, setNodeListOpen] = useState(false);
   const [geofences, setGeofences] = useState([]);
+  const [mapControlsOpen, setMapControlsOpen] = useState(true);
   const [trailHours, setTrailHours] = useState(24);
   const [trailMode, setTrailMode] = useState("preset"); // "preset" | "custom"
   const [customStart, setCustomStart] = useState("");
@@ -184,7 +185,7 @@ export default function MapView() {
 
   return (
     <div className="flex h-[calc(100vh-3rem)] md:h-screen">
-      <div className="flex-1 relative">
+      <div className="flex-1 relative isolate">
         <Map
           nodes={displayNodes}
           trails={trails}
@@ -194,6 +195,18 @@ export default function MapView() {
         />
 
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1.5 animate-fade-in">
+          {/* Mobile toggle for map controls */}
+          <button
+            onClick={() => setMapControlsOpen((o) => !o)}
+            className="md:hidden bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md px-2.5 py-1 text-xs font-mono text-th-dim hover:text-th-text shadow-lg flex items-center gap-1.5 transition-colors"
+          >
+            <svg className={`w-3 h-3 transition-transform ${mapControlsOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+            {mapControlsOpen ? "Hide" : "Controls"}
+          </button>
+
+          <div className={`${mapControlsOpen ? "flex" : "hidden md:flex"} flex-col items-center gap-1.5`}>
           <div className="flex bg-th-surface/90 backdrop-blur border border-th-border-strong rounded-md p-0.5 text-xs md:text-sm shadow-lg font-mono">
             <button
               onClick={() => setFilter("tracked")}
@@ -312,6 +325,7 @@ export default function MapView() {
           )}
 
           {geofencePanel.panel}
+          </div>
         </div>
 
         {filter === "tracked" && !hasTracked && hiddenNodeIds.size === 0 && (
