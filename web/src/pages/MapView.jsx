@@ -10,7 +10,6 @@ export default function MapView() {
   const [nodes, setNodes] = useState([]);
   const [messagesByChannel, setMessagesByChannel] = useState({});
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = usePersistedState("selected-channel", 0);
   const [trails, setTrails] = useState({});
   const [filter, setFilter] = usePersistedState("map-filter", "tracked");
   const [hiddenNodeIds, setHiddenNodeIds] = usePersistedState("hidden-node-ids", new Set());
@@ -22,6 +21,15 @@ export default function MapView() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
+  // DM state
+  const [myNodeId, setMyNodeId] = useState(null);
+  const myNodeIdRef = useRef(null);
+  const [dmMessages, setDmMessages] = useState({});
+  const [openDMs, setOpenDMs] = usePersistedState("open-dms", []);
+  const [activeConversation, setActiveConversation] = usePersistedState("active-conversation", { type: "channel", channelIndex: 0 });
+
+  useEffect(() => { myNodeIdRef.current = myNodeId; }, [myNodeId]);
+
   const loadGeofences = useCallback(() => {
     api.geofences().then(setGeofences).catch(console.error);
   }, []);
@@ -32,17 +40,33 @@ export default function MapView() {
     api.messages(0, 100).then((msgs) => {
       setMessagesByChannel((prev) => ({ ...prev, 0: msgs }));
     }).catch(console.error);
+    api.health().then((h) => setMyNodeId(h.my_node_id)).catch(console.error);
     loadGeofences();
   }, [loadGeofences]);
 
+  // Lazy-load channel messages
   useEffect(() => {
-    if (messagesByChannel[selectedChannel]) return;
-    api.messages(selectedChannel, 100).then((msgs) => {
-      setMessagesByChannel((prev) => ({ ...prev, [selectedChannel]: msgs }));
+    if (activeConversation.type !== "channel") return;
+    const ch = activeConversation.channelIndex;
+    if (messagesByChannel[ch]) return;
+    api.messages(ch, 100).then((msgs) => {
+      setMessagesByChannel((prev) => ({ ...prev, [ch]: msgs }));
     }).catch(console.error);
-  }, [selectedChannel]);
+  }, [activeConversation]);
 
-  const visibleMessages = messagesByChannel[selectedChannel] || [];
+  // Lazy-load DM messages
+  useEffect(() => {
+    if (activeConversation.type !== "dm") return;
+    const peerId = activeConversation.peerId;
+    if (dmMessages[peerId]) return;
+    api.dmMessages(peerId, 100).then((msgs) => {
+      setDmMessages((prev) => ({ ...prev, [peerId]: msgs }));
+    }).catch(console.error);
+  }, [activeConversation]);
+
+  const visibleMessages = activeConversation.type === "channel"
+    ? (messagesByChannel[activeConversation.channelIndex] || [])
+    : (dmMessages[activeConversation.peerId] || []);
 
   const trackedIds = useMemo(
     () => new Set(nodes.filter((n) => n.is_tracked).map((n) => n.node_id)),
@@ -89,22 +113,32 @@ export default function MapView() {
 
   const pendingIdRef = useRef(null);
 
-  const addMessage = useCallback((msg) => {
-    const ch = msg.channel ?? 0;
-    const isPending = typeof msg.id === "string" && msg.id.startsWith("pending-");
-    if (isPending) pendingIdRef.current = msg.id;
-    setMessagesByChannel((prev) => {
-      const existing = prev[ch] || [];
+  const appendToList = useCallback((setter, key, msg, isPending) => {
+    setter((prev) => {
+      const existing = prev[key] || [];
       if (existing.some((m) => m.id === msg.id)) return prev;
-      // Replace the optimistic pending message with the real one
-      if (!isPending && pendingIdRef.current && existing.some((m) => m.id === pendingIdRef.current)) {
+      if (!isPending && pendingIdRef.current && existing.some((m) => typeof m.id === "string" && m.id.startsWith("pending-"))) {
         pendingIdRef.current = null;
-        return { ...prev, [ch]: existing.map((m) => (typeof m.id === "string" && m.id.startsWith("pending-") ? msg : m)) };
+        return { ...prev, [key]: existing.map((m) => (typeof m.id === "string" && m.id.startsWith("pending-") ? msg : m)) };
       }
       const updated = [...existing, msg];
-      return { ...prev, [ch]: updated.length > 500 ? updated.slice(-500) : updated };
+      return { ...prev, [key]: updated.length > 500 ? updated.slice(-500) : updated };
     });
   }, []);
+
+  const addMessage = useCallback((msg) => {
+    const isPending = typeof msg.id === "string" && msg.id.startsWith("pending-");
+    if (isPending) pendingIdRef.current = msg.id;
+
+    const isDM = msg.to_id && msg.to_id !== "^all";
+    if (isDM) {
+      const peerId = msg.from_id === myNodeIdRef.current ? msg.to_id : msg.from_id;
+      appendToList(setDmMessages, peerId, msg, isPending);
+      setOpenDMs((prev) => prev.includes(peerId) ? prev : [...prev, peerId]);
+      return;
+    }
+    appendToList(setMessagesByChannel, msg.channel ?? 0, msg, isPending);
+  }, [appendToList]);
 
   const handleEvent = useCallback((event) => {
     if (event.type === "position") {
@@ -180,6 +214,24 @@ export default function MapView() {
     api.react(packetId, emoji, channel).catch(console.error);
   }, []);
 
+  const handleChannelChange = useCallback((channelIndex) => {
+    setActiveConversation({ type: "channel", channelIndex });
+  }, []);
+
+  const handleOpenDM = useCallback((peerId) => {
+    setOpenDMs((prev) => prev.includes(peerId) ? prev : [...prev, peerId]);
+    setActiveConversation({ type: "dm", peerId });
+  }, []);
+
+  const handleCloseDM = useCallback((peerId) => {
+    setOpenDMs((prev) => prev.filter((id) => id !== peerId));
+    setActiveConversation((prev) =>
+      prev.type === "dm" && prev.peerId === peerId
+        ? { type: "channel", channelIndex: 0 }
+        : prev
+    );
+  }, []);
+
   const hasTracked = trackedIds.size > 0;
 
   const geofencePanel = GeofencePanel({ geofences, onUpdate: loadGeofences });
@@ -193,6 +245,7 @@ export default function MapView() {
           trackedIds={trackedIds}
           geofences={geofences}
           onMapClick={geofencePanel.onMapClick}
+          onOpenDM={handleOpenDM}
         />
 
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1.5 animate-fade-in">
@@ -348,10 +401,16 @@ export default function MapView() {
         messages={visibleMessages}
         trackedIds={trackedIds}
         channels={channels}
-        selectedChannel={selectedChannel}
-        onChannelChange={setSelectedChannel}
+        selectedChannel={activeConversation.type === "channel" ? activeConversation.channelIndex : null}
+        onChannelChange={handleChannelChange}
         onMessageSent={addMessage}
         onReact={handleReact}
+        myNodeId={myNodeId}
+        activeConversation={activeConversation}
+        openDMs={openDMs}
+        onOpenDM={handleOpenDM}
+        onCloseDM={handleCloseDM}
+        nodes={nodes}
       />
     </div>
   );

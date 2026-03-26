@@ -59,6 +59,7 @@ class Message(Base):
         Index("idx_message_channel_timestamp", "channel", "timestamp"),
         Index("idx_message_from_id", "from_id"),
         Index("idx_message_packet_id", "packet_id"),
+        Index("idx_message_to_id", "to_id"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)

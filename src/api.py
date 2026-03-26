@@ -15,8 +15,9 @@ from src.db import SessionLocal, init_db
 from src.mesh import MeshtasticManager
 from src.queries import (
     create_geofence, delete_geofence, get_node_positions, get_stats,
-    list_geofences, list_messages, list_nodes, prune_old_messages,
-    prune_old_positions, set_node_tracked, update_geofence,
+    list_conversations, list_dm_messages, list_geofences, list_messages,
+    list_nodes, prune_old_messages, prune_old_positions, set_node_tracked,
+    update_geofence,
 )
 from src.schemas import CreateGeofence, SendMessage, SendReaction, TrackNodeRequest, UpdateGeofence
 
@@ -180,8 +181,11 @@ def api_messages(channel: int = Query(default=0, ge=0, le=255), limit: int = Que
 @app.post("/api/messages")
 def api_send_message(body: SendMessage, request: Request):
     try:
-        result = mesh.send_text(body.text, body.channel)
-        log.info("Message sent ch=%d by %s", body.channel, request.client.host if request.client else "unknown")
+        result = mesh.send_text(body.text, body.channel, to_id=body.to_id)
+        if body.to_id:
+            log.info("DM sent to=%s ch=%d by %s", body.to_id, body.channel, request.client.host if request.client else "unknown")
+        else:
+            log.info("Message sent ch=%d by %s", body.channel, request.client.host if request.client else "unknown")
         return result
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
@@ -195,6 +199,30 @@ def api_react(packet_id: int, body: SendReaction, request: Request):
         return result
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/messages/dm/{peer_id}")
+def api_dm_messages(peer_id: str, limit: int = Query(default=100, ge=1, le=500)):
+    my_id = mesh.my_node_id
+    if not my_id:
+        raise HTTPException(status_code=503, detail="Local node ID not available")
+    db = SessionLocal()
+    try:
+        return list_dm_messages(db, my_id, peer_id, limit)
+    finally:
+        db.close()
+
+
+@app.get("/api/conversations")
+def api_conversations():
+    my_id = mesh.my_node_id
+    if not my_id:
+        raise HTTPException(status_code=503, detail="Local node ID not available")
+    db = SessionLocal()
+    try:
+        return list_conversations(db, my_id)
+    finally:
+        db.close()
 
 
 @app.post("/api/disconnect")

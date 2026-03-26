@@ -27,7 +27,7 @@ const EMOJI_GROUPS = [
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "👎", "🔥", "👋"];
 
-export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent, onReact }) {
+export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel, onChannelChange, onMessageSent, onReact, myNodeId, activeConversation, openDMs = [], onOpenDM, onCloseDM, nodes = [] }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [collapsed, setCollapsed] = usePersistedState("msg-collapsed", false);
@@ -44,6 +44,11 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const isDM = activeConversation?.type === "dm";
+  const dmPeerId = isDM ? activeConversation.peerId : null;
+  const dmPeerNode = isDM ? nodes.find((n) => n.node_id === dmPeerId) : null;
+  const dmPeerLabel = dmPeerNode?.long_name || dmPeerNode?.short_name || dmPeerId;
+
   const send = async (e) => {
     e.preventDefault();
     const msg = text.trim();
@@ -53,12 +58,15 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     setSending(true);
     setShowEmoji(false);
 
+    const toId = isDM ? dmPeerId : "^all";
+    const channel = isDM ? 0 : (selectedChannel ?? 0);
+
     const optimistic = {
       id: `pending-${Date.now()}`,
-      from_id: "local",
+      from_id: myNodeId || "local",
       from_name: "You",
-      to_id: "^all",
-      channel: selectedChannel,
+      to_id: toId,
+      channel,
       text: msg,
       snr: null,
       rssi: null,
@@ -67,7 +75,9 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     if (onMessageSent) onMessageSent(optimistic);
 
     try {
-      const real = await api.sendMessage(msg, selectedChannel);
+      const real = isDM
+        ? await api.sendDM(msg, dmPeerId, channel)
+        : await api.sendMessage(msg, channel);
       if (onMessageSent && real?.id) {
         onMessageSent(real);
       }
@@ -154,56 +164,82 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
         <>
           <div className="px-3 py-2 border-b border-th-border">
             <h2 className="text-sm font-semibold text-th-text font-mono">Messages</h2>
-            {visibleChannelsSorted.length <= 1 && !hasHidden ? (
-              <p className="text-xs text-th-muted font-mono">{visibleChannelsSorted[0]?.name || "primary"}</p>
-            ) : (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {visibleChannelsSorted.map((ch) => (
-                  <div
-                    key={ch.index}
-                    className={`flex items-center group cursor-grab active:cursor-grabbing transition-opacity ${
-                      dragIdx != null && dragIdx !== ch.index && dragOverIdx === ch.index ? "border-l-2 border-th-accent" : ""
-                    } ${dragIdx === ch.index ? "opacity-40" : ""}`}
-                    draggable
-                    onDragStart={() => onDragStart(ch.index)}
-                    onDragOver={(e) => onDragOver(e, ch.index)}
-                    onDragEnd={onDragEnd}
-                    onDrop={() => onDrop(ch.index)}
+            <div className="flex flex-wrap gap-1 mt-1">
+              {visibleChannelsSorted.map((ch) => (
+                <div
+                  key={ch.index}
+                  className={`flex items-center group cursor-grab active:cursor-grabbing transition-opacity ${
+                    dragIdx != null && dragIdx !== ch.index && dragOverIdx === ch.index ? "border-l-2 border-th-accent" : ""
+                  } ${dragIdx === ch.index ? "opacity-40" : ""}`}
+                  draggable
+                  onDragStart={() => onDragStart(ch.index)}
+                  onDragOver={(e) => onDragOver(e, ch.index)}
+                  onDragEnd={onDragEnd}
+                  onDrop={() => onDrop(ch.index)}
+                >
+                  <button
+                    onClick={() => onChannelChange(ch.index)}
+                    className={`px-2 py-0.5 rounded-l text-xs font-mono transition-colors ${
+                      selectedChannel === ch.index
+                        ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                        : "bg-th-elevated text-th-dim hover:text-th-text"
+                    }`}
                   >
+                    {ch.name}
+                  </button>
+                  <button
+                    onClick={() => hideChannel(ch.index)}
+                    className={`px-1 py-0.5 rounded-r text-xs transition-colors opacity-0 group-hover:opacity-100 ${
+                      selectedChannel === ch.index
+                        ? "bg-th-accent-bg/50 text-th-muted hover:text-red-400 ring-1 ring-th-accent-border"
+                        : "bg-th-elevated text-th-faint hover:text-red-400"
+                    }`}
+                    title="Hide channel"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {hasHidden && (
+                <button
+                  onClick={showAllChannels}
+                  className="px-2 py-0.5 rounded text-xs font-mono text-th-muted hover:text-th-accent-light transition-colors"
+                  title="Show all hidden channels"
+                >
+                  +{hiddenChannels.size}
+                </button>
+              )}
+              {openDMs.map((peerId) => {
+                const node = nodes.find((n) => n.node_id === peerId);
+                const label = node?.short_name || node?.long_name || peerId;
+                const isActive = activeConversation?.type === "dm" && activeConversation.peerId === peerId;
+                return (
+                  <div key={peerId} className="flex items-center group">
                     <button
-                      onClick={() => onChannelChange(ch.index)}
+                      onClick={() => onOpenDM?.(peerId)}
                       className={`px-2 py-0.5 rounded-l text-xs font-mono transition-colors ${
-                        selectedChannel === ch.index
-                          ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                        isActive
+                          ? "bg-violet-900/50 text-violet-300 ring-1 ring-violet-700"
                           : "bg-th-elevated text-th-dim hover:text-th-text"
                       }`}
                     >
-                      {ch.name}
+                      DM {label}
                     </button>
                     <button
-                      onClick={() => hideChannel(ch.index)}
+                      onClick={() => onCloseDM?.(peerId)}
                       className={`px-1 py-0.5 rounded-r text-xs transition-colors opacity-0 group-hover:opacity-100 ${
-                        selectedChannel === ch.index
-                          ? "bg-th-accent-bg/50 text-th-muted hover:text-red-400 ring-1 ring-th-accent-border"
+                        isActive
+                          ? "bg-violet-900/50 text-th-muted hover:text-red-400 ring-1 ring-violet-700"
                           : "bg-th-elevated text-th-faint hover:text-red-400"
                       }`}
-                      title="Hide channel"
+                      title="Close DM"
                     >
                       ×
                     </button>
                   </div>
-                ))}
-                {hasHidden && (
-                  <button
-                    onClick={showAllChannels}
-                    className="px-2 py-0.5 rounded text-xs font-mono text-th-muted hover:text-th-accent-light transition-colors"
-                    title="Show all hidden channels"
-                  >
-                    +{hiddenChannels.size}
-                  </button>
-                )}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -223,9 +259,13 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
                   onMouseLeave={() => setHoveredMsgId(null)}
                 >
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className={`font-medium text-xs ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-th-accent"}`}>
-                      {msg.from_name || msg.from_id}
-                    </span>
+                    <button
+                      onClick={() => msg.from_id !== myNodeId && msg.from_id !== "local" && onOpenDM?.(msg.from_id)}
+                      className={`font-medium text-xs hover:underline cursor-pointer ${trackedIds?.has(msg.from_id) ? "text-emerald-400" : "text-th-accent"}`}
+                      title={msg.from_id === myNodeId || msg.from_id === "local" ? undefined : `DM ${msg.from_name || msg.from_id}`}
+                    >
+                      {msg.from_id === myNodeId || msg.from_id === "local" ? "You" : (msg.from_name || msg.from_id)}
+                    </button>
                     <span className="text-th-faint text-xs font-mono">{formatTime(msg.timestamp)}</span>
                     {(msg.snr != null || msg.rssi != null || msg.hops != null) && (
                       <span className="text-th-muted text-xs font-mono">
@@ -308,7 +348,7 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="message..."
+              placeholder={isDM ? `DM to ${dmPeerLabel}...` : "message..."}
               maxLength={228}
               className="flex-1 bg-th-elevated border border-th-border-strong text-th-text rounded px-3 py-2 text-sm font-mono focus:border-th-accent focus:outline-none transition-colors duration-150 placeholder:text-th-faint"
             />

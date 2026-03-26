@@ -70,7 +70,7 @@ function timeAgo(iso) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-function buildPopup(node) {
+function buildPopup(node, onOpenDM) {
   const container = document.createElement("div");
   container.className = "text-sm min-w-[160px]";
   container.style.fontFamily = "var(--t-font-data)";
@@ -117,10 +117,23 @@ function buildPopup(node) {
   details.appendChild(time);
 
   container.appendChild(details);
+
+  if (onOpenDM) {
+    const msgBtn = document.createElement("button");
+    msgBtn.textContent = "Message";
+    msgBtn.className = "mt-2 w-full px-2 py-1 text-xs rounded border border-violet-600/50 text-violet-400 hover:bg-violet-900/30 hover:text-violet-300 transition-colors cursor-pointer";
+    msgBtn.style.fontFamily = "var(--t-font-data)";
+    msgBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onOpenDM(node.node_id);
+    });
+    container.appendChild(msgBtn);
+  }
+
   return container;
 }
 
-export default function Map({ nodes, trails, trackedIds, geofences, onMapClick }) {
+export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, onOpenDM }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const tileRef = useRef(null);
@@ -200,7 +213,7 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick }
       bounds.push(pos);
       const isTracked = tracked.has(node.node_id);
       const color = isTracked ? nodeColor(node.node_id) : null;
-      const popup = buildPopup(node);
+      const popup = buildPopup(node, onOpenDM);
       const label = node.long_name || node.short_name || node.node_id;
 
       if (markersRef.current[node.node_id]) {
@@ -229,7 +242,7 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick }
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
       setHasFitBounds(true);
     }
-  }, [nodes, trackedIds, isDark, hasFitBounds]);
+  }, [nodes, trackedIds, isDark, hasFitBounds, onOpenDM]);
 
   // Update trail polylines
   useEffect(() => {

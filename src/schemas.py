@@ -59,6 +59,7 @@ class MessageResponse(BaseModel):
 class SendMessage(BaseModel):
     text: str = Field(min_length=1, max_length=228)
     channel: int = Field(default=0, ge=0, le=255)
+    to_id: str | None = Field(default=None, max_length=20)
 
 
 class SendReaction(BaseModel):

@@ -68,6 +68,25 @@ export const api = {
     }
     return res.json();
   },
+  sendDM: async (text, toId, channel = 0) => {
+    const res = await fetch(`${BASE}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ text, channel, to_id: toId }),
+    });
+    if (res.status === 401) {
+      window.dispatchEvent(new Event("meshtastic-auth-required"));
+      throw new Error("Authentication required");
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.detail || `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+  dmMessages: (peerId, limit = 100) =>
+    fetchJSON(`/messages/dm/${encodeURIComponent(peerId)}?limit=${limit}`),
+  conversations: () => fetchJSON("/conversations"),
   react: (packetId, emoji, channel = 0) =>
     fetchJSON(`/messages/${packetId}/react`, {
       method: "POST",

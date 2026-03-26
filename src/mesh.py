@@ -303,15 +303,16 @@ class MeshtasticManager:
         self._connected = False
         self._interface = None
 
-    def send_text(self, text: str, channel: int = 0) -> dict:
+    def send_text(self, text: str, channel: int = 0, to_id: str | None = None) -> dict:
         if not self._interface or not self._connected:
             raise RuntimeError("Not connected to Meshtastic")
-        result = self._interface.sendText(text, channelIndex=channel)
+        dest = to_id or "^all"
+        result = self._interface.sendText(text, destinationId=dest, channelIndex=channel)
         pkt_id = result.id if result else None
         from_id = self._my_node_id or "local"
         db = SessionLocal()
         try:
-            msg = add_message(db, from_id, "^all", channel, text, packet_id=pkt_id)
+            msg = add_message(db, from_id, dest, channel, text, packet_id=pkt_id)
             msg_id = msg.id
             msg_ts = msg.timestamp.isoformat()
             from src.models import Node
@@ -324,7 +325,7 @@ class MeshtasticManager:
             "id": msg_id,
             "from_id": from_id,
             "from_name": from_name,
-            "to_id": "^all",
+            "to_id": dest,
             "channel": channel,
             "text": text,
             "packet_id": pkt_id,

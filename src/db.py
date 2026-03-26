@@ -61,6 +61,7 @@ def init_db():
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_from_id ON messages (from_id)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_packet_id ON messages (packet_id)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_reaction_message_packet_id ON reactions (message_packet_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_to_id ON messages (to_id)"))
         conn.commit()
         log.info("Ensured indexes exist")
     log.info("Database initialized")

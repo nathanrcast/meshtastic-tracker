@@ -167,6 +167,69 @@ def list_messages(db: Session, channel: int = 0, limit: int = 100) -> list[dict]
     return result
 
 
+def list_dm_messages(db: Session, my_node_id: str, peer_node_id: str, limit: int = 100) -> list[dict]:
+    from sqlalchemy import or_, and_
+    msgs = (
+        db.query(Message)
+        .filter(or_(
+            and_(Message.from_id == my_node_id, Message.to_id == peer_node_id),
+            and_(Message.from_id == peer_node_id, Message.to_id == my_node_id),
+        ))
+        .order_by(Message.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    packet_ids = [m.packet_id for m in msgs if m.packet_id is not None]
+    reactions_map = get_reactions_by_packet_ids(db, packet_ids)
+    node_cache: dict[str, str] = {}
+    result = []
+    for m in reversed(msgs):
+        if m.from_id not in node_cache:
+            node = db.query(Node).filter(Node.node_id == m.from_id).first()
+            node_cache[m.from_id] = node.long_name if node else ""
+        result.append({
+            "id": m.id,
+            "from_id": m.from_id,
+            "from_name": node_cache[m.from_id] or None,
+            "to_id": m.to_id,
+            "channel": m.channel,
+            "text": m.text,
+            "packet_id": m.packet_id,
+            "snr": m.snr,
+            "rssi": m.rssi,
+            "hops": m.hops,
+            "timestamp": m.timestamp.isoformat(),
+            "reactions": reactions_map.get(m.packet_id, []) if m.packet_id else [],
+        })
+    return result
+
+
+def list_conversations(db: Session, my_node_id: str) -> list[dict]:
+    from sqlalchemy import or_, and_
+    msgs = (
+        db.query(Message)
+        .filter(
+            Message.to_id != "^all",
+            Message.to_id != "",
+            or_(Message.from_id == my_node_id, Message.to_id == my_node_id),
+        )
+        .order_by(Message.timestamp.desc())
+        .all()
+    )
+    seen: dict[str, dict] = {}
+    for m in msgs:
+        peer_id = m.to_id if m.from_id == my_node_id else m.from_id
+        if peer_id not in seen:
+            node = db.query(Node).filter(Node.node_id == peer_id).first()
+            seen[peer_id] = {
+                "peer_id": peer_id,
+                "peer_name": node.long_name if node else None,
+                "last_message": m.text,
+                "last_timestamp": m.timestamp.isoformat(),
+            }
+    return list(seen.values())
+
+
 def get_stats(db: Session) -> dict:
     node_count = db.query(Node).count()
     online_count = db.query(Node).filter(Node.is_online == 1).count()
