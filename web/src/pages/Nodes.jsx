@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, utc, useWebSocket } from "../api";
 
 function timeAgo(iso) {
@@ -28,6 +29,7 @@ function batteryBar(level) {
 }
 
 export default function Nodes() {
+  const navigate = useNavigate();
   const [nodes, setNodes] = useState([]);
   const [filter, setFilter] = useState("all");
   const [sortKey, setSortKey] = useState("status");
@@ -247,12 +249,18 @@ export default function Nodes() {
                   />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="text-th-text font-medium">
-                    {node.long_name || node.node_id}
-                  </div>
-                  {node.short_name && (
-                    <div className="text-xs text-th-muted">{node.short_name}</div>
-                  )}
+                  <button
+                    onClick={() => navigate(`/?dm=${encodeURIComponent(node.node_id)}`)}
+                    className="text-left hover:underline"
+                    title={`DM ${node.long_name || node.node_id}`}
+                  >
+                    <div className="text-th-text font-medium">
+                      {node.long_name || node.node_id}
+                    </div>
+                    {node.short_name && (
+                      <div className="text-xs text-th-muted">{node.short_name}</div>
+                    )}
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-th-dim hidden sm:table-cell">
                   {node.hardware_model || "—"}

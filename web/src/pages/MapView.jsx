@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, useWebSocket } from "../api";
 import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
@@ -7,6 +8,7 @@ import { nodeColor } from "../lib/nodeColors";
 import usePersistedState from "../hooks/usePersistedState";
 
 export default function MapView() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [nodes, setNodes] = useState([]);
   const [messagesByChannel, setMessagesByChannel] = useState({});
   const [channels, setChannels] = useState([]);
@@ -29,6 +31,16 @@ export default function MapView() {
   const [activeConversation, setActiveConversation] = usePersistedState("active-conversation", { type: "channel", channelIndex: 0 });
 
   useEffect(() => { myNodeIdRef.current = myNodeId; }, [myNodeId]);
+
+  // Open DM from ?dm= query param (e.g., from Nodes page)
+  useEffect(() => {
+    const dmId = searchParams.get("dm");
+    if (dmId) {
+      setOpenDMs((prev) => prev.includes(dmId) ? prev : [...prev, dmId]);
+      setActiveConversation({ type: "dm", peerId: dmId });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
 
   const loadGeofences = useCallback(() => {
     api.geofences().then(setGeofences).catch(console.error);
