@@ -4,19 +4,20 @@ import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
 import GeofencePanel from "../components/GeofencePanel";
 import { nodeColor } from "../lib/nodeColors";
+import usePersistedState from "../hooks/usePersistedState";
 
 export default function MapView() {
   const [nodes, setNodes] = useState([]);
   const [messagesByChannel, setMessagesByChannel] = useState({});
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState(0);
+  const [selectedChannel, setSelectedChannel] = usePersistedState("selected-channel", 0);
   const [trails, setTrails] = useState({});
-  const [filter, setFilter] = useState("tracked");
-  const [hiddenNodeIds, setHiddenNodeIds] = useState(new Set());
-  const [nodeListOpen, setNodeListOpen] = useState(false);
+  const [filter, setFilter] = usePersistedState("map-filter", "tracked");
+  const [hiddenNodeIds, setHiddenNodeIds] = usePersistedState("hidden-node-ids", new Set());
+  const [nodeListOpen, setNodeListOpen] = usePersistedState("node-list-open", false);
   const [geofences, setGeofences] = useState([]);
-  const [mapControlsOpen, setMapControlsOpen] = useState(true);
-  const [trailHours, setTrailHours] = useState(24);
+  const [mapControlsOpen, setMapControlsOpen] = usePersistedState("map-controls-open", true);
+  const [trailHours, setTrailHours] = usePersistedState("trail-hours", 24);
   const [trailMode, setTrailMode] = useState("preset"); // "preset" | "custom"
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");

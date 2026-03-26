@@ -10,6 +10,7 @@ const TILES = {
 };
 const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
+const MAP_VIEW_KEY = "meshtastic-map-view";
 
 function createIcon(online, tracked, isDark, nodeClr) {
   const stroke = isDark ? "#18181b" : "#ffffff";
@@ -133,13 +134,28 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick }
   // Initialize map
   useEffect(() => {
     if (mapRef.current) return;
-    const map = L.map(containerRef.current, {
-      center: [33.45, -112.07],
-      zoom: 10,
-      zoomControl: true,
-    });
+
+    let center = [33.45, -112.07];
+    let zoom = 10;
+    let restored = false;
+    try {
+      const saved = JSON.parse(localStorage.getItem(MAP_VIEW_KEY));
+      if (saved?.center && saved?.zoom) {
+        center = saved.center;
+        zoom = saved.zoom;
+        restored = true;
+      }
+    } catch {}
+    if (restored) setHasFitBounds(true);
+
+    const map = L.map(containerRef.current, { center, zoom, zoomControl: true });
     tileRef.current = L.tileLayer(TILES[theme] || TILES.hacker, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
     mapRef.current = map;
+
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      localStorage.setItem(MAP_VIEW_KEY, JSON.stringify({ center: [c.lat, c.lng], zoom: map.getZoom() }));
+    });
 
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(containerRef.current);

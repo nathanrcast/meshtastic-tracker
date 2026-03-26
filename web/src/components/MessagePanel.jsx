@@ -1,37 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api, utc } from "../api";
+import usePersistedState from "../hooks/usePersistedState";
 
 function formatTime(iso) {
   const d = utc(iso);
   if (!d) return "";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-const HIDDEN_CHANNELS_KEY = "meshtastic-hidden-channels";
-const CHANNEL_ORDER_KEY = "meshtastic-channel-order";
-
-function loadHiddenChannels() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(HIDDEN_CHANNELS_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveHiddenChannels(set) {
-  localStorage.setItem(HIDDEN_CHANNELS_KEY, JSON.stringify([...set]));
-}
-
-function loadChannelOrder() {
-  try {
-    return JSON.parse(localStorage.getItem(CHANNEL_ORDER_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveChannelOrder(order) {
-  localStorage.setItem(CHANNEL_ORDER_KEY, JSON.stringify(order));
 }
 
 function sortChannels(channels, order) {
@@ -56,11 +30,11 @@ const QUICK_EMOJIS = ["👍", "❤️", "😂", "👎", "🔥", "👋"];
 export default function MessagePanel({ messages, trackedIds, channels = [], selectedChannel = 0, onChannelChange, onMessageSent, onReact }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [hiddenChannels, setHiddenChannels] = useState(loadHiddenChannels);
+  const [collapsed, setCollapsed] = usePersistedState("msg-collapsed", false);
+  const [hiddenChannels, setHiddenChannels] = usePersistedState("hidden-channels", new Set());
   const [showEmoji, setShowEmoji] = useState(false);
   const [hoveredMsgId, setHoveredMsgId] = useState(null);
-  const [channelOrder, setChannelOrder] = useState(loadChannelOrder);
+  const [channelOrder, setChannelOrder] = usePersistedState("channel-order", []);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const bottomRef = useRef(null);
@@ -125,7 +99,6 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     const next = new Set(hiddenChannels);
     next.add(index);
     setHiddenChannels(next);
-    saveHiddenChannels(next);
     if (selectedChannel === index) {
       const visible = channels.filter((ch) => !next.has(ch.index));
       if (visible.length > 0) onChannelChange(visible[0].index);
@@ -134,7 +107,6 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
 
   const showAllChannels = () => {
     setHiddenChannels(new Set());
-    saveHiddenChannels(new Set());
   };
 
   const onDragStart = (chIndex) => setDragIdx(chIndex);
@@ -149,7 +121,6 @@ export default function MessagePanel({ messages, trackedIds, channels = [], sele
     ordered.splice(fromPos, 1);
     ordered.splice(toPos, 0, dragIdx);
     setChannelOrder(ordered);
-    saveChannelOrder(ordered);
     setDragIdx(null);
     setDragOverIdx(null);
   };
