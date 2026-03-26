@@ -103,26 +103,25 @@ The base station stays at home, connected to your LAN, and acts as the TCP gatew
 
 ### Channel Setup (Private Precise Location)
 
-Meshtastic only broadcasts position on the **primary channel** (index 0). To keep precise location private, make your private channel primary and move the default public channel to secondary.
+Keep the default public channel (e.g., LongFast) as primary and add a private channel as secondary with full-precision location. Recent firmware versions allow per-channel position precision — a secondary channel with precision set will broadcast location on that channel independently.
 
 On the base station (via the Meshtastic app):
 
-1. **Settings > Channels** > edit the primary channel (index 0)
-2. Rename it to your private channel name (e.g., "Family")
-3. Generate a new PSK (pre-shared key) — save this for other devices
-4. Set position precision to **32** (full precision)
-5. Add the default public channel (e.g., LongFast) as a **secondary channel**
+1. **Settings > Channels** > edit the primary channel (index 0, e.g., LongFast)
+2. Set position precision to **0** (disabled) so your location is not shared publicly
+3. Add a secondary channel (e.g., "Family") with a new PSK (pre-shared key) — save this for other devices
+4. Set position precision to **32** (full precision) on the secondary channel
 
-> **Why this matters:** Position broadcasts always go to the primary channel. If your private channel is secondary, your nodes won't broadcast position on it. Swapping the channel order is the only reliable way to get precise location on a private channel.
+> **Why keep the default channel as primary?** Setting a private channel as primary prevents your node from being discovered by other Meshtastic users and degrades traceroutes — intermediate nodes that don't share your private channel will appear as unknown. Keeping the default channel primary preserves mesh discoverability while the secondary channel handles private location sharing.
 
 ### Additional Devices
 
 Each device that should appear on the map:
 
 1. Install the [Meshtastic app](https://meshtastic.org/downloads/) and pair via Bluetooth
-2. Set the **primary channel** (index 0) to the same name and PSK from above
-3. Set position precision to **32** on the primary channel
-4. Add any public channels as secondary
+2. Set position precision to **0** on the primary channel (index 0)
+3. Add the same secondary channel name and PSK from above
+4. Set position precision to **32** on the secondary channel
 5. Ensure GPS is enabled: **Settings > Position > GPS Enabled**
 6. For stationary devices without GPS, set a fixed position: **Settings > Position > Fixed Position**
 
