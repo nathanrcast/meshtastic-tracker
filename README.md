@@ -2,6 +2,16 @@
 
 A self-hosted web dashboard for monitoring Meshtastic LoRa mesh networks. Always-on TCP gateway with persistent position history, movement trails, multi-channel messaging, emoji reactions, and geofence alerts.
 
+## Screenshots
+
+| Map (Dark) | Map (Light) |
+|---|---|
+| ![Map dark theme](docs/screenshots/map-dark.png) | ![Map light theme](docs/screenshots/map-light.png) |
+
+| Nodes | Messages |
+|---|---|
+| ![Nodes list](docs/screenshots/nodes-dark.png) | ![Messages](docs/screenshots/messages-dark.png) |
+
 ## How is this different from the official Meshtastic web client?
 
 The [official client](https://client.meshtastic.org) connects directly from your browser to a radio — it's a device configuration tool. If the browser tab closes, everything stops.
