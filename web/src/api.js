@@ -4,11 +4,7 @@ const BASE = "/api";
 
 let apiKey = localStorage.getItem("meshtastic-api-key") || "";
 
-export function utc(iso) {
-  if (!iso) return null;
-  if (!iso.endsWith("Z") && !iso.includes("+")) return new Date(iso + "Z");
-  return new Date(iso);
-}
+export { utc } from "./lib/utils.jsx";
 
 function authHeaders() {
   const h = {};
@@ -120,11 +116,23 @@ export function useWebSocket(onEvent) {
   useEffect(() => {
     let ws;
     let reconnectTimer;
+    let attempt = 0;
+
+    function backoffMs() {
+      // 1s, 2s, 4s, 8s, ... cap at 30s + jitter
+      const base = Math.min(1000 * Math.pow(2, attempt), 30000);
+      const jitter = Math.floor(Math.random() * 250);
+      return base + jitter;
+    }
 
     function connect() {
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       const keyParam = apiKey ? `?key=${encodeURIComponent(apiKey)}` : "";
       ws = new WebSocket(`${proto}//${location.host}${BASE}/ws${keyParam}`);
+
+      ws.onopen = () => {
+        attempt = 0;
+      };
 
       ws.onmessage = (e) => {
         try {
@@ -133,10 +141,16 @@ export function useWebSocket(onEvent) {
       };
 
       ws.onclose = () => {
-        reconnectTimer = setTimeout(connect, 3000);
+        const delay = backoffMs();
+        attempt += 1;
+        reconnectTimer = setTimeout(connect, delay);
       };
 
-      ws.onerror = () => ws.close();
+      ws.onerror = () => {
+        try {
+          ws.close();
+        } catch {}
+      };
     }
 
     connect();

@@ -3,6 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../theme";
 import { nodeColor } from "../lib/nodeColors";
+import { batteryColor, timeAgo } from "../lib/utils.jsx";
 
 const TILES = {
   hacker: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -51,23 +52,6 @@ function createIcon(online, tracked, isDark, nodeClr) {
     <circle cx="12" cy="12" r="8" fill="${color}" stroke="${stroke}" stroke-width="2"/>
   </svg>`;
   return L.divIcon({ html: svg, className: "", iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
-}
-
-function batteryColor(level) {
-  if (level == null) return "text-th-muted";
-  if (level > 50) return "text-emerald-400";
-  if (level > 20) return "text-amber-400";
-  return "text-red-400";
-}
-
-function timeAgo(iso) {
-  if (!iso) return "never";
-  const d = iso.endsWith("Z") ? new Date(iso) : new Date(iso + "Z");
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
 }
 
 function buildPopup(node, onOpenDM) {

@@ -100,6 +100,8 @@ export default function MapView() {
     [displayNodes]
   );
 
+  // Debounce trail fetches to avoid spamming the backend on rapid UI changes
+  const trailDebounceRef = useRef(null);
   useEffect(() => {
     if (!displayNodeIds) {
       setTrails({});
@@ -110,17 +112,26 @@ export default function MapView() {
       ? { start: new Date(customStart).toISOString(), end: new Date(customEnd).toISOString() }
       : {};
     const hours = trailMode === "preset" ? trailHours : 24;
-    Promise.all(
-      ids.map((id) =>
-        api.nodePositions(id, hours, opts).then((positions) => [id, positions])
-      )
-    ).then((results) => {
-      const trailMap = {};
-      for (const [id, positions] of results) {
-        if (positions.length > 1) trailMap[id] = positions;
-      }
-      setTrails(trailMap);
-    });
+
+    if (trailDebounceRef.current) clearTimeout(trailDebounceRef.current);
+
+    trailDebounceRef.current = setTimeout(() => {
+      Promise.all(
+        ids.map((id) =>
+          api.nodePositions(id, hours, opts).then((positions) => [id, positions])
+        )
+      ).then((results) => {
+        const trailMap = {};
+        for (const [id, positions] of results) {
+          if (positions.length > 1) trailMap[id] = positions;
+        }
+        setTrails(trailMap);
+      });
+    }, 250); // 250ms debounce
+
+    return () => {
+      if (trailDebounceRef.current) clearTimeout(trailDebounceRef.current);
+    };
   }, [displayNodeIds, trailHours, trailMode, customStart, customEnd]);
 
   const pendingIdRef = useRef(null);

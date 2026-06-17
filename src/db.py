@@ -1,9 +1,11 @@
 import logging
+from contextlib import contextmanager
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from src.config import DATABASE_URL
+from src.config import DATABASE_URL, MAX_POSITIONS_HOURS
 
 log = logging.getLogger("meshtastic-web.db")
 
@@ -12,13 +14,56 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine)
+# For SQLite, allow cross-thread usage (FastAPI + background mesh thread)
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    future=True,
+)
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+# --- SQLite performance & safety pragmas (applied per connection) ---
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    if DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        # WAL for better concurrency and crash safety
+        cursor.execute("PRAGMA journal_mode=WAL")
+        # Balance safety vs speed; NORMAL is recommended with WAL
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        # Larger cache (negative = KB)
+        cursor.execute("PRAGMA cache_size=-20000")
+        # Store temp tables in memory
+        cursor.execute("PRAGMA temp_store=MEMORY")
+        # Reasonable timeout for contended writes
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.close()
+
+
+@contextmanager
+def get_db():
+    """Context manager for DB sessions. Use in non-FastAPI code paths."""
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
     with engine.connect() as conn:
+        # --- lightweight migrations via PRAGMA introspection ---
         cols = [r[1] for r in conn.execute(text("PRAGMA table_info(nodes)"))]
         if "is_tracked" not in cols:
             conn.execute(text("ALTER TABLE nodes ADD COLUMN is_tracked INTEGER DEFAULT 0"))
@@ -44,7 +89,9 @@ def init_db():
 
         tables = [r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))]
         if "reactions" not in tables:
-            conn.execute(text("""
+            conn.execute(
+                text(
+                    """
                 CREATE TABLE reactions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     message_packet_id INTEGER NOT NULL,
@@ -52,10 +99,13 @@ def init_db():
                     emoji VARCHAR(16) NOT NULL,
                     timestamp DATETIME
                 )
-            """))
+            """
+                )
+            )
             conn.commit()
             log.info("Created reactions table")
 
+        # Indexes (idempotent)
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_position_node_timestamp ON node_positions (node_id, timestamp)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_channel_timestamp ON messages (channel, timestamp)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_from_id ON messages (from_id)"))
@@ -64,4 +114,8 @@ def init_db():
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_to_id ON messages (to_id)"))
         conn.commit()
         log.info("Ensured indexes exist")
-    log.info("Database initialized")
+
+    # Enforce a sane max for any callers that might pass huge hour windows
+    if MAX_POSITIONS_HOURS < 1:
+        log.warning("MAX_POSITIONS_HOURS is set too low; using 720")
+    log.info("Database initialized (WAL=%s)", "yes" if DATABASE_URL.startswith("sqlite") else "n/a")

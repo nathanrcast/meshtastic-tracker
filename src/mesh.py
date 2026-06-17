@@ -3,7 +3,13 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from src.config import GEOFENCE_WEBHOOK_URL, MESHTASTIC_HOST, MESHTASTIC_PORT, RECONNECT_INTERVAL
+from src.config import (
+    GEOFENCE_WEBHOOK_ALLOWED_HOSTS,
+    GEOFENCE_WEBHOOK_URL,
+    MESHTASTIC_HOST,
+    MESHTASTIC_PORT,
+    RECONNECT_INTERVAL,
+)
 from src.db import SessionLocal
 from src.queries import add_message, add_reaction, check_geofences, update_node_position, upsert_node
 
@@ -275,26 +281,53 @@ class MeshtasticManager:
     def _fire_geofence_webhook(self, node_id: str, exit_info: dict):
         if not GEOFENCE_WEBHOOK_URL:
             return
+
+        import json
+        import urllib.error
+        import urllib.request
+        from urllib.parse import urlparse
+
         if not GEOFENCE_WEBHOOK_URL.startswith(("http://", "https://")):
             log.warning("Ignoring non-HTTP webhook URL")
             return
-        import json
-        import urllib.request
-        payload = json.dumps({
-            "event": "geofence_exit",
-            "node_id": node_id,
-            "node_name": exit_info["node_name"],
-            "fence_name": exit_info["fence_name"],
-            "distance_m": exit_info["distance_m"],
-        }).encode()
+
+        parsed = urlparse(GEOFENCE_WEBHOOK_URL)
+        host = parsed.hostname or ""
+        if GEOFENCE_WEBHOOK_ALLOWED_HOSTS:
+            if host not in GEOFENCE_WEBHOOK_ALLOWED_HOSTS:
+                log.warning("Webhook host %s not in allowed list; dropping", host)
+                return
+
+        payload = json.dumps(
+            {
+                "event": "geofence_exit",
+                "node_id": node_id,
+                "node_name": exit_info["node_name"],
+                "fence_name": exit_info["fence_name"],
+                "distance_m": exit_info["distance_m"],
+            }
+        ).encode()
+
+        # Build an opener that refuses redirects (prevents SSRF via open redirect)
+        class _NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+
+        opener = urllib.request.build_opener(_NoRedirect)
+        req = urllib.request.Request(
+            GEOFENCE_WEBHOOK_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         try:
-            req = urllib.request.Request(
-                GEOFENCE_WEBHOOK_URL,
-                data=payload,
-                headers={"Content-Type": "application/json"},
-            )
-            urllib.request.urlopen(req, timeout=5)
+            # timeout + no redirect + small read limit
+            with opener.open(req, timeout=5) as resp:
+                # consume a bounded amount to avoid memory issues on weird servers
+                resp.read(4096)
             log.info("Geofence alert: %s exited %s", exit_info["node_name"], exit_info["fence_name"])
+        except urllib.error.HTTPError as e:
+            log.warning("Webhook HTTP error %s for %s", e.code, host)
         except Exception:
             log.exception("Failed to send geofence webhook")
 

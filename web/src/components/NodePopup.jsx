@@ -1,21 +1,4 @@
-import { utc } from "../api";
-
-function batteryColor(level) {
-  if (level == null) return "text-th-muted";
-  if (level > 50) return "text-emerald-400";
-  if (level > 20) return "text-amber-400";
-  return "text-red-400";
-}
-
-function timeAgo(iso) {
-  const d = utc(iso);
-  if (!d) return "never";
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
+import { batteryColor, timeAgo } from "../lib/utils.jsx";
 
 export default function NodePopup({ node }) {
   return (
