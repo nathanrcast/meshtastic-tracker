@@ -123,7 +123,7 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="hidden md:flex md:w-52 bg-th-surface bg-mesh-grid border-r border-th-accent-border/40 p-4 flex-shrink-0 flex-col">
+      <nav className="hidden md:flex md:w-52 bg-th-surface bg-mesh-grid border-r border-th-accent-border/40 p-4 flex-shrink-0 flex-col sticky top-0 h-screen self-start">
         {navContent}
       </nav>
 

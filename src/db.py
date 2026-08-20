@@ -70,6 +70,11 @@ def init_db():
             conn.commit()
             log.info("Added is_tracked column to nodes table")
 
+        if "hops_away" not in cols:
+            conn.execute(text("ALTER TABLE nodes ADD COLUMN hops_away INTEGER"))
+            conn.commit()
+            log.info("Added hops_away column to nodes table")
+
         msg_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(messages)"))]
         if "snr" not in msg_cols:
             conn.execute(text("ALTER TABLE messages ADD COLUMN snr REAL"))
@@ -104,6 +109,22 @@ def init_db():
             )
             conn.commit()
             log.info("Created reactions table")
+
+        if "traceroutes" not in tables:
+            conn.execute(
+                text(
+                    """
+                CREATE TABLE traceroutes (
+                    node_id VARCHAR(20) PRIMARY KEY,
+                    route TEXT DEFAULT '',
+                    route_back TEXT DEFAULT '',
+                    timestamp DATETIME
+                )
+            """
+                )
+            )
+            conn.commit()
+            log.info("Created traceroutes table")
 
         # Indexes (idempotent)
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_position_node_timestamp ON node_positions (node_id, timestamp)"))

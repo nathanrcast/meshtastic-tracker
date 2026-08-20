@@ -57,29 +57,46 @@ Internal architecture, library quirks, and gotchas for the meshtastic-tracker se
 
 - Backend: `POST /api/messages` with `to_id` field, `GET /api/messages/dm/{peer_id}`, `GET /api/conversations`.
 - Mesh: `sendText(text, destinationId=to_id, channelIndex=0)` — DMs default to channel 0.
-- Frontend: DM tabs (violet) in `MessagePanel`, clickable sender names, "Message" button in map popups.
-- Node list: clicking node name navigates to `/?dm=nodeId` to open DM tab.
+- Frontend: DM tabs (violet) in `MessagePanel`, clickable sender names, "Message" button in map popups, inline thread on the node details page.
+- Node list: clicking a node row navigates to `/nodes/{node_id}` (the details page); its inline thread is the primary DM entry point. "Open in Map ↗" on that page still opens the classic `/?dm=nodeId` tab.
 - State persisted: `openDMs`, `activeConversation` via `usePersistedState`.
 - WebSocket routes DMs by inspecting `to_id` field (not `^all`).
+
+## Node details page
+
+- Route: `/nodes/:nodeId` (`web/src/pages/NodeDetail.jsx`). Reached from the Nodes table row, or "Details" in a map marker popup (`Map.jsx`'s `onOpenDetails` prop, threaded from `MapView.jsx`).
+- Backend: `GET /api/nodes/{node_id}` (404 if unknown) avoids fetching the full 1000+ row list for a single-node view.
+- Layout: mini `Map` (single node + its trail, no geofences), telemetry panel, inline DM thread (not the `MessagePanel` component — that's hard-coded to the map's collapsible sidebar), traceroute panel.
+- Trail: same hour-preset buttons as the map, refetched via `api.nodePositions` on preset change; live WS `position` events for this node are appended client-side between refetches.
+
+## Traceroute
+
+- Backend: `MeshtasticManager.send_traceroute()` fires `sendData(RouteDiscovery(), portNum=TRACEROUTE_APP, wantResponse=True)` directly — **not** `iface.sendTraceRoute()`, which blocks synchronously and only prints to stdout.
+- Reply arrives on the `meshtastic.receive.traceroute` pubsub topic (`protocols[70].name == "traceroute"`), handled by `MeshtasticManager._on_traceroute`.
+- `RouteDiscovery.route`/`routeBack` are node numbers (uint32) — format as `!{num:08x}`. SNR values are ints scaled ×4 (`-128` = unknown, divide the rest by 4).
+- `snrTowards` has one more entry than `route` — the extra entry is the SNR of the final hop into the traced node, keyed by `packet["from"]`. Symmetrically, a valid `routeBack` requires `hopStart` present on the packet and `len(snrBack) == len(routeBack) + 1`, with the final entry keyed by `packet["to"]` (us).
+- Persisted one row per node (`Traceroute` model, upserted) via `save_traceroute`/`get_traceroute` in `queries.py`. `GET /api/nodes/{node_id}/traceroute` returns the last stored result; `POST` fires a new one and returns immediately — the result arrives over the WebSocket as a `traceroute` event, not in the POST response.
+- No failure event exists on the wire — the firmware simply doesn't reply if the node is unreachable. The frontend times out client-side after 30s.
 
 ## Key patterns
 
 - DB migrations: `init_db()` checks `PRAGMA table_info`, `ALTER`s if column missing (no Alembic).
-- WebSocket: thread-safe queue bridge between sync mesh callbacks and async FastAPI WS.
+- WebSocket: `on_event` callback runs on a mesh callback thread (pubsub's `publishingThread`, or a request threadpool worker), never the event loop thread — it hops onto the loop via `loop.call_soon_threadsafe()` before touching the `asyncio.Queue`. Writing to the queue directly from a callback thread is not safe.
 - Reconnect loop: daemon thread, checks `_connected` and `_auto_reconnect` every N seconds.
 - Node staleness: `mark_stale_nodes()` sets `is_online=0` after configurable timeout.
 - Frontend sorts nodes client-side (sortable table headers), backend returns default sort.
+- `hops_away`: sourced from `NodeInfo.hops_away` on seed (has explicit protobuf presence — `0` means direct neighbour, absent means unknown) and re-derived per-packet as `hopStart - hopLimit` on position/text/nodeinfo packets (`_hops_from_packet` in `mesh.py`). Two different quantities sharing one column: the seeded value is the mesh's own hop count, the packet-derived value is per-transmission.
 
 ## Frontend
 
-- React Router: `/` (Map), `/nodes` (Nodes table).
+- React Router: `/` (Map), `/nodes` (Nodes table), `/nodes/:nodeId` (node details).
 - Map: Leaflet with CartoDB dark tiles, tracked vs all node filtering, position persisted to localStorage.
 - `MessagePanel`: collapsible side panel on Map page, multi-channel tabs, DM tabs (violet).
-- Direct messaging: click node name in Nodes list or "Message" button in map popup to open DM tab.
+- Direct messaging: click a node row to open its details page (inline DM thread), or "Message" in a map popup to open the map's DM tab directly.
 - `usePersistedState` hook: drop-in `useState` replacement backed by localStorage, handles Sets via JSON array serialization.
-- Layout: responsive sidebar nav (desktop) / hamburger menu (mobile), health polling.
+- Layout: responsive sidebar nav (desktop, `sticky top-0 h-screen` so the theme toggle / connect-disconnect / stats stay visible under a tall page like the 1000+ row Nodes table) / hamburger menu (mobile), health polling.
 - Design: dual-theme (hacker/corporate), `th-*` CSS tokens, cyan accent (hacker) / blue (corporate). Cross-project token system documented in `HomeNetwork/skills/ui-design.md`.
-- `useWebSocket` hook: auto-reconnect WS, dispatches events to pages.
+- `useWebSocket` hook: auto-reconnect WS, dispatches events to pages. Cleanup sets a `cancelled` flag checked in `onclose` before it schedules a reconnect — without it, unmounting mid-backoff still reconnects (every Map↔Nodes navigation would otherwise leak one live socket).
 - `utc()` helper: normalizes ISO timestamps missing `Z` suffix.
 
 ## Gotchas

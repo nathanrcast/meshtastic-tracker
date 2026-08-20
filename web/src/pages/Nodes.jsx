@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, utc, useWebSocket } from "../api";
 import { batteryBar, timeAgo } from "../lib/utils.jsx";
+import usePersistedState from "../hooks/usePersistedState";
 
 export default function Nodes() {
   const navigate = useNavigate();
   const [nodes, setNodes] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = usePersistedState("nodes-filter", "all");
   const [sortKey, setSortKey] = useState("status");
   const [sortDir, setSortDir] = useState("desc");
   const [, setTick] = useState(0);
@@ -25,7 +26,15 @@ export default function Nodes() {
       setNodes((prev) =>
         prev.map((n) =>
           n.node_id === event.node_id
-            ? { ...n, lat: event.lat, lon: event.lon, altitude: event.altitude, is_online: true, last_heard: new Date().toISOString() }
+            ? {
+                ...n,
+                lat: event.lat,
+                lon: event.lon,
+                altitude: event.altitude,
+                hops_away: event.hops_away ?? n.hops_away,
+                is_online: true,
+                last_heard: new Date().toISOString(),
+              }
             : n
         )
       );
@@ -35,7 +44,12 @@ export default function Nodes() {
         if (exists) {
           return prev.map((n) =>
             n.node_id === event.node_id
-              ? { ...n, long_name: event.long_name, short_name: event.short_name }
+              ? {
+                  ...n,
+                  long_name: event.long_name,
+                  short_name: event.short_name,
+                  hops_away: event.hops_away ?? n.hops_away,
+                }
               : n
           );
         }
@@ -49,6 +63,7 @@ export default function Nodes() {
           lat: null,
           lon: null,
           altitude: null,
+          hops_away: event.hops_away ?? null,
           last_heard: new Date().toISOString(),
           is_online: true,
           is_tracked: false,
@@ -74,7 +89,11 @@ export default function Nodes() {
   };
 
   const trackedCount = nodes.filter((n) => n.is_tracked).length;
-  const filtered = filter === "tracked" ? nodes.filter((n) => n.is_tracked) : nodes;
+  const onlineCount = nodes.filter((n) => n.is_online).length;
+  const filtered =
+    filter === "tracked" ? nodes.filter((n) => n.is_tracked)
+    : filter === "online" ? nodes.filter((n) => n.is_online)
+    : nodes;
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -103,6 +122,14 @@ export default function Nodes() {
           const ah = (a.hardware_model || "").toLowerCase();
           const bh = (b.hardware_model || "").toLowerCase();
           return ah < bh ? dir : ah > bh ? -dir : 0;
+        }
+        case "hops": {
+          const an = a.hops_away;
+          const bn = b.hops_away;
+          if (an == null && bn == null) return 0;
+          if (an == null) return 1;
+          if (bn == null) return -1;
+          return (an - bn) * dir;
         }
         case "battery": {
           const an = a.battery_level;
@@ -142,6 +169,11 @@ export default function Nodes() {
     return [...filtered].sort(cmp);
   }, [filtered, sortKey, sortDir]);
 
+  const emptyMessage =
+    filter === "tracked" ? "no tracked nodes — star nodes to track them"
+    : filter === "online" ? "no nodes online right now"
+    : "no nodes discovered yet";
+
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
@@ -156,6 +188,16 @@ export default function Nodes() {
             }`}
           >
             All ({nodes.length})
+          </button>
+          <button
+            onClick={() => setFilter("online")}
+            className={`px-3 py-1 rounded transition-colors ${
+              filter === "online"
+                ? "bg-th-accent-bg/50 text-th-accent-light ring-1 ring-th-accent-border"
+                : "text-th-dim hover:text-th-text"
+            }`}
+          >
+            Online ({onlineCount})
           </button>
           <button
             onClick={() => setFilter("tracked")}
@@ -178,6 +220,7 @@ export default function Nodes() {
                 { key: "status", label: "STATUS", className: "" },
                 { key: "name", label: "NAME", className: "" },
                 { key: "hardware", label: "HARDWARE", className: "hidden sm:table-cell" },
+                { key: "hops", label: "HOPS", className: "hidden sm:table-cell" },
                 { key: "battery", label: "BATTERY", className: "hidden md:table-cell" },
                 { key: "snr", label: "SNR", className: "hidden md:table-cell" },
                 { key: "position", label: "POSITION", className: "hidden lg:table-cell" },
@@ -225,9 +268,9 @@ export default function Nodes() {
                 </td>
                 <td className="px-4 py-3">
                   <button
-                    onClick={() => navigate(`/?dm=${encodeURIComponent(node.node_id)}`)}
+                    onClick={() => navigate(`/nodes/${encodeURIComponent(node.node_id)}`)}
                     className="text-left hover:underline"
-                    title={`DM ${node.long_name || node.node_id}`}
+                    title={`View ${node.long_name || node.node_id}`}
                   >
                     <div className="text-th-text font-medium">
                       {node.long_name || node.node_id}
@@ -239,6 +282,9 @@ export default function Nodes() {
                 </td>
                 <td className="px-4 py-3 text-th-dim hidden sm:table-cell">
                   {node.hardware_model || "—"}
+                </td>
+                <td className="px-4 py-3 text-th-dim hidden sm:table-cell font-mono">
+                  {node.hops_away == null ? "—" : node.hops_away === 0 ? "direct" : node.hops_away}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   {batteryBar(node.battery_level) || <span className="text-th-faint">—</span>}
@@ -258,8 +304,8 @@ export default function Nodes() {
             ))}
             {displayNodes.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-th-muted font-mono">
-                  {filter === "tracked" ? "no tracked nodes — star nodes to track them" : "no nodes discovered yet"}
+                <td colSpan={9} className="px-4 py-8 text-center text-th-muted font-mono">
+                  {emptyMessage}
                 </td>
               </tr>
             )}

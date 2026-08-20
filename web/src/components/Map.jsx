@@ -54,7 +54,7 @@ function createIcon(online, tracked, isDark, nodeClr) {
   return L.divIcon({ html: svg, className: "", iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12] });
 }
 
-function buildPopup(node, onOpenDM) {
+function buildPopup(node, onOpenDM, onOpenDetails) {
   const container = document.createElement("div");
   container.className = "text-sm min-w-[160px]";
   container.style.fontFamily = "var(--t-font-data)";
@@ -102,22 +102,41 @@ function buildPopup(node, onOpenDM) {
 
   container.appendChild(details);
 
-  if (onOpenDM) {
-    const msgBtn = document.createElement("button");
-    msgBtn.textContent = "Message";
-    msgBtn.className = "mt-2 w-full px-2 py-1 text-xs rounded border border-violet-600/50 text-violet-400 hover:bg-violet-900/30 hover:text-violet-300 transition-colors cursor-pointer";
-    msgBtn.style.fontFamily = "var(--t-font-data)";
-    msgBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      onOpenDM(node.node_id);
-    });
-    container.appendChild(msgBtn);
+  if (onOpenDM || onOpenDetails) {
+    const btnRow = document.createElement("div");
+    btnRow.className = "mt-2 flex gap-1.5";
+
+    if (onOpenDetails) {
+      const detailsBtn = document.createElement("button");
+      detailsBtn.textContent = "Details";
+      detailsBtn.className = "flex-1 px-2 py-1 text-xs rounded border border-th-accent-border text-th-accent-light hover:bg-th-accent-bg/50 transition-colors cursor-pointer";
+      detailsBtn.style.fontFamily = "var(--t-font-data)";
+      detailsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onOpenDetails(node.node_id);
+      });
+      btnRow.appendChild(detailsBtn);
+    }
+
+    if (onOpenDM) {
+      const msgBtn = document.createElement("button");
+      msgBtn.textContent = "Message";
+      msgBtn.className = "flex-1 px-2 py-1 text-xs rounded border border-violet-600/50 text-violet-400 hover:bg-violet-900/30 hover:text-violet-300 transition-colors cursor-pointer";
+      msgBtn.style.fontFamily = "var(--t-font-data)";
+      msgBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onOpenDM(node.node_id);
+      });
+      btnRow.appendChild(msgBtn);
+    }
+
+    container.appendChild(btnRow);
   }
 
   return container;
 }
 
-export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, onOpenDM }) {
+export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, onOpenDM, onOpenDetails }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const tileRef = useRef(null);
@@ -197,7 +216,7 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, 
       bounds.push(pos);
       const isTracked = tracked.has(node.node_id);
       const color = isTracked ? nodeColor(node.node_id) : null;
-      const popup = buildPopup(node, onOpenDM);
+      const popup = buildPopup(node, onOpenDM, onOpenDetails);
       const label = node.long_name || node.short_name || node.node_id;
 
       if (markersRef.current[node.node_id]) {
@@ -226,7 +245,7 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, 
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
       setHasFitBounds(true);
     }
-  }, [nodes, trackedIds, isDark, hasFitBounds, onOpenDM]);
+  }, [nodes, trackedIds, isDark, hasFitBounds, onOpenDM, onOpenDetails]);
 
   // Update trail polylines
   useEffect(() => {

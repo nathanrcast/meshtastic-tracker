@@ -22,6 +22,7 @@ class Node(Base):
     last_heard = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_online = Column(Integer, default=1)
     is_tracked = Column(Integer, default=0)
+    hops_away = Column(Integer, nullable=True)
 
     positions = relationship("NodePosition", back_populates="node", cascade="all, delete-orphan")
 
@@ -84,4 +85,13 @@ class Reaction(Base):
     message_packet_id = Column(Integer, nullable=False)
     from_id = Column(String(20), nullable=False)
     emoji = Column(String(16), nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Traceroute(Base):
+    __tablename__ = "traceroutes"
+
+    node_id = Column(String(20), primary_key=True)
+    route = Column(Text, default="")
+    route_back = Column(Text, default="")
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

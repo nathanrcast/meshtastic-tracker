@@ -1,17 +1,18 @@
+import json
 import math
 import threading
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from src.models import Geofence, Message, Node, NodePosition, Reaction
+from src.models import Geofence, Message, Node, NodePosition, Reaction, Traceroute
 from src.config import MAX_TRAIL_POSITIONS, STALE_MINUTES
 
 _geofence_state: dict[tuple[str, int], bool] = {}
 _geofence_lock = threading.Lock()
 
 
-def upsert_node(db: Session, node_id: str, **kwargs) -> Node:
+def upsert_node(db: Session, node_id: str, commit: bool = True, **kwargs) -> Node:
     node = db.query(Node).filter(Node.node_id == node_id).first()
     if node:
         for k, v in kwargs.items():
@@ -20,11 +21,12 @@ def upsert_node(db: Session, node_id: str, **kwargs) -> Node:
     else:
         node = Node(node_id=node_id, **{k: v for k, v in kwargs.items() if v is not None})
         db.add(node)
-    db.commit()
+    if commit:
+        db.commit()
     return node
 
 
-def update_node_position(db: Session, node_id: str, lat: float, lon: float, altitude: int | None = None):
+def update_node_position(db: Session, node_id: str, lat: float, lon: float, altitude: int | None = None, hops_away: int | None = None):
     now = datetime.now(timezone.utc)
     node = db.query(Node).filter(Node.node_id == node_id).first()
     if node:
@@ -33,6 +35,8 @@ def update_node_position(db: Session, node_id: str, lat: float, lon: float, alti
         node.altitude = altitude
         node.last_heard = now
         node.is_online = 1
+        if hops_away is not None:
+            node.hops_away = hops_away
     pos = NodePosition(node_id=node_id, lat=lat, lon=lon, altitude=altitude, timestamp=now)
     db.add(pos)
     db.commit()
@@ -80,30 +84,40 @@ def get_reactions_by_packet_ids(db: Session, packet_ids: list[int]) -> dict[int,
     return grouped
 
 
+def _serialize_node(n: Node) -> dict:
+    return {
+        "node_id": n.node_id,
+        "long_name": n.long_name,
+        "short_name": n.short_name,
+        "hardware_model": n.hardware_model,
+        "battery_level": n.battery_level,
+        "voltage": n.voltage,
+        "snr": n.snr,
+        "lat": n.lat,
+        "lon": n.lon,
+        "altitude": n.altitude,
+        "hops_away": n.hops_away,
+        "last_heard": n.last_heard.isoformat() if n.last_heard else None,
+        "is_online": bool(n.is_online),
+        "is_tracked": bool(n.is_tracked),
+    }
+
+
 def list_nodes(db: Session, tracked_only: bool = False) -> list[dict]:
     mark_stale_nodes(db)
     query = db.query(Node)
     if tracked_only:
         query = query.filter(Node.is_tracked == 1)
     nodes = query.order_by(Node.is_online.desc(), Node.last_heard.desc()).all()
-    return [
-        {
-            "node_id": n.node_id,
-            "long_name": n.long_name,
-            "short_name": n.short_name,
-            "hardware_model": n.hardware_model,
-            "battery_level": n.battery_level,
-            "voltage": n.voltage,
-            "snr": n.snr,
-            "lat": n.lat,
-            "lon": n.lon,
-            "altitude": n.altitude,
-            "last_heard": n.last_heard.isoformat() if n.last_heard else None,
-            "is_online": bool(n.is_online),
-            "is_tracked": bool(n.is_tracked),
-        }
-        for n in nodes
-    ]
+    return [_serialize_node(n) for n in nodes]
+
+
+def get_node(db: Session, node_id: str) -> dict | None:
+    mark_stale_nodes(db)
+    node = db.query(Node).filter(Node.node_id == node_id).first()
+    if not node:
+        return None
+    return _serialize_node(node)
 
 
 def set_node_tracked(db: Session, node_id: str, tracked: bool) -> Node | None:
@@ -336,3 +350,31 @@ def check_geofences(db: Session, node_id: str, lat: float, lon: float) -> list[d
                 "node_name": node.long_name or node.short_name or node_id,
             })
     return exits
+
+
+def save_traceroute(db: Session, node_id: str, route: list[dict], route_back: list[dict]) -> dict:
+    tr = db.query(Traceroute).filter(Traceroute.node_id == node_id).first()
+    now = datetime.now(timezone.utc)
+    route_json = json.dumps(route)
+    route_back_json = json.dumps(route_back)
+    if tr:
+        tr.route = route_json
+        tr.route_back = route_back_json
+        tr.timestamp = now
+    else:
+        tr = Traceroute(node_id=node_id, route=route_json, route_back=route_back_json, timestamp=now)
+        db.add(tr)
+    db.commit()
+    return {"node_id": node_id, "route": route, "route_back": route_back, "timestamp": now.isoformat()}
+
+
+def get_traceroute(db: Session, node_id: str) -> dict | None:
+    tr = db.query(Traceroute).filter(Traceroute.node_id == node_id).first()
+    if not tr:
+        return None
+    return {
+        "node_id": tr.node_id,
+        "route": json.loads(tr.route) if tr.route else [],
+        "route_back": json.loads(tr.route_back) if tr.route_back else [],
+        "timestamp": tr.timestamp.isoformat() if tr.timestamp else None,
+    }

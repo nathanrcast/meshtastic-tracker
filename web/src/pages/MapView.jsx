@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, useWebSocket } from "../api";
 import Map from "../components/Map";
 import MessagePanel from "../components/MessagePanel";
@@ -8,6 +8,7 @@ import { nodeColor } from "../lib/nodeColors";
 import usePersistedState from "../hooks/usePersistedState";
 
 export default function MapView() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [nodes, setNodes] = useState([]);
   const [messagesByChannel, setMessagesByChannel] = useState({});
@@ -269,6 +270,7 @@ export default function MapView() {
           geofences={geofences}
           onMapClick={geofencePanel.onMapClick}
           onOpenDM={handleOpenDM}
+          onOpenDetails={(nodeId) => navigate(`/nodes/${encodeURIComponent(nodeId)}`)}
         />
 
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-1.5 animate-fade-in">

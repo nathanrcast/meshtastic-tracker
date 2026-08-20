@@ -30,8 +30,10 @@ from src.mesh import MeshtasticManager
 from src.queries import (
     create_geofence,
     delete_geofence,
+    get_node,
     get_node_positions,
     get_stats,
+    get_traceroute,
     list_conversations,
     list_dm_messages,
     list_geofences,
@@ -158,7 +160,7 @@ async def auth_middleware(request: Request, call_next):
 
 # -- Rate limit on write endpoints --
 
-RATE_LIMITED_PREFIXES = ("/api/messages", "/api/geofences", "/api/disconnect", "/api/reconnect")
+RATE_LIMITED_PREFIXES = ("/api/messages", "/api/geofences", "/api/disconnect", "/api/reconnect", "/api/nodes")
 
 
 @app.middleware("http")
@@ -201,6 +203,14 @@ def api_nodes(tracked: bool = Query(default=False), db=Depends(_get_db_dep)):
     return list_nodes(db, tracked_only=tracked)
 
 
+@app.get("/api/nodes/{node_id}")
+def api_node(node_id: str, db=Depends(_get_db_dep)):
+    node = get_node(db, node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return node
+
+
 @app.patch("/api/nodes/{node_id}/tracked")
 def api_track_node(node_id: str, body: TrackNodeRequest, db=Depends(_get_db_dep)):
     node = set_node_tracked(db, node_id, body.is_tracked)
@@ -219,9 +229,34 @@ def api_node_positions(
 ):
     from datetime import datetime as dt, timezone as tz
 
-    start_dt = dt.fromisoformat(start).replace(tzinfo=tz.utc) if start else None
-    end_dt = dt.fromisoformat(end).replace(tzinfo=tz.utc) if end else None
+    def _parse_dt(value: str) -> dt:
+        parsed = dt.fromisoformat(value)
+        return parsed.astimezone(tz.utc) if parsed.tzinfo else parsed.replace(tzinfo=tz.utc)
+
+    try:
+        start_dt = _parse_dt(start) if start else None
+        end_dt = _parse_dt(end) if end else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid start/end datetime format")
     return get_node_positions(db, node_id, hours, start=start_dt, end=end_dt)
+
+
+@app.post("/api/nodes/{node_id}/traceroute")
+def api_send_traceroute(node_id: str, request: Request):
+    try:
+        result = mesh.send_traceroute(node_id)
+        log.info("Traceroute requested for %s by %s", node_id, request.client.host if request.client else "unknown")
+        return result
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/nodes/{node_id}/traceroute")
+def api_get_traceroute(node_id: str, db=Depends(_get_db_dep)):
+    result = get_traceroute(db, node_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No traceroute on record for this node")
+    return result
 
 
 @app.get("/api/channels")
@@ -352,16 +387,27 @@ async def websocket_endpoint(ws: WebSocket):
             return
     await ws.accept()
     queue: asyncio.Queue = asyncio.Queue(maxsize=WS_QUEUE_MAXSIZE)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     dropped = 0
 
     def on_event(event: dict):
+        # Called from mesh callback threads (pubsub's publishingThread or a
+        # threadpool worker), never the event loop thread — asyncio.Queue is
+        # not thread-safe, so hop back onto the loop before touching it.
         nonlocal dropped
+
+        def _put():
+            nonlocal dropped
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                dropped += 1  # best-effort; clients may miss events under heavy load
+
         try:
-            queue.put_nowait(event)
-        except asyncio.QueueFull:
-            dropped += 1  # best-effort; clients may miss events under heavy load
+            loop.call_soon_threadsafe(_put)
+        except RuntimeError:
+            pass  # loop already closing
 
     mesh.register_ws(on_event)
     try:

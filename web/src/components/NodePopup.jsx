@@ -1,6 +1,7 @@
+import { Link } from "react-router-dom";
 import { batteryColor, timeAgo } from "../lib/utils.jsx";
 
-export default function NodePopup({ node }) {
+export default function NodePopup({ node, onOpenDM }) {
   return (
     <div className="text-sm min-w-[160px]">
       <div className="font-semibold text-th-text font-mono">
@@ -22,6 +23,22 @@ export default function NodePopup({ node }) {
           <div className="text-th-dim">SNR: {node.snr} dB</div>
         )}
         <div className="text-th-muted">{timeAgo(node.last_heard)}</div>
+      </div>
+      <div className="mt-2 flex gap-1.5">
+        <Link
+          to={`/nodes/${encodeURIComponent(node.node_id)}`}
+          className="flex-1 text-center px-2 py-1 text-xs rounded border border-th-accent-border text-th-accent-light hover:bg-th-accent-bg/50 transition-colors"
+        >
+          Details
+        </Link>
+        {onOpenDM && (
+          <button
+            onClick={() => onOpenDM(node.node_id)}
+            className="flex-1 px-2 py-1 text-xs rounded border border-violet-600/50 text-violet-400 hover:bg-violet-900/30 hover:text-violet-300 transition-colors cursor-pointer"
+          >
+            Message
+          </button>
+        )}
       </div>
     </div>
   );

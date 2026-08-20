@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from src.config import (
     GEOFENCE_WEBHOOK_ALLOWED_HOSTS,
@@ -9,11 +9,19 @@ from src.config import (
     MESHTASTIC_HOST,
     MESHTASTIC_PORT,
     RECONNECT_INTERVAL,
+    STALE_MINUTES,
 )
 from src.db import SessionLocal
-from src.queries import add_message, add_reaction, check_geofences, update_node_position, upsert_node
+from src.queries import add_message, add_reaction, check_geofences, save_traceroute, update_node_position, upsert_node
 
 log = logging.getLogger("meshtastic-web.mesh")
+
+UNKNOWN_SNR = -128
+
+
+def _hops_from_packet(packet: dict) -> int | None:
+    hop_start = packet.get("hopStart", 0)
+    return (hop_start - packet.get("hopLimit", 0)) if hop_start else None
 
 
 class MeshtasticManager:
@@ -95,15 +103,21 @@ class MeshtasticManager:
         if not nodes:
             return
 
+        stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=STALE_MINUTES)
+
         db = SessionLocal()
         try:
             for node_id, info in nodes.items():
                 user = info.get("user", {})
                 pos = info.get("position", {})
                 metrics = info.get("deviceMetrics", {})
+                last_heard = (
+                    datetime.fromtimestamp(info["lastHeard"], tz=timezone.utc) if info.get("lastHeard") else None
+                )
                 upsert_node(
                     db,
                     node_id,
+                    commit=False,
                     long_name=user.get("longName", ""),
                     short_name=user.get("shortName", ""),
                     hardware_model=user.get("hwModel", ""),
@@ -113,9 +127,11 @@ class MeshtasticManager:
                     lat=pos.get("latitude"),
                     lon=pos.get("longitude"),
                     altitude=pos.get("altitude"),
-                    last_heard=datetime.fromtimestamp(info["lastHeard"], tz=timezone.utc) if info.get("lastHeard") else None,
-                    is_online=1,
+                    hops_away=info.get("hopsAway"),
+                    last_heard=last_heard,
+                    is_online=1 if (last_heard and last_heard >= stale_cutoff) else 0,
                 )
+            db.commit()
             log.info("Seeded %d nodes from mesh", len(nodes))
         finally:
             db.close()
@@ -144,6 +160,7 @@ class MeshtasticManager:
         pub.subscribe(self._on_position, "meshtastic.receive.position")
         pub.subscribe(self._on_text, "meshtastic.receive.text")
         pub.subscribe(self._on_nodeinfo, "meshtastic.receive.nodeinfo")
+        pub.subscribe(self._on_traceroute, "meshtastic.receive.traceroute")
         pub.subscribe(self._on_disconnect, "meshtastic.connection.lost")
         log.info("Subscribed to mesh events")
 
@@ -154,13 +171,14 @@ class MeshtasticManager:
             lat = pos.get("latitude") or pos.get("latitudeI", 0) / 1e7
             lon = pos.get("longitude") or pos.get("longitudeI", 0) / 1e7
             alt = pos.get("altitude")
+            hops = _hops_from_packet(packet)
 
             if not lat and not lon:
                 return
 
             db = SessionLocal()
             try:
-                update_node_position(db, from_id, lat, lon, alt)
+                update_node_position(db, from_id, lat, lon, alt, hops_away=hops)
                 exits = check_geofences(db, from_id, lat, lon)
             finally:
                 db.close()
@@ -171,6 +189,7 @@ class MeshtasticManager:
                 "lat": lat,
                 "lon": lon,
                 "altitude": alt,
+                "hops_away": hops,
             })
 
             for exit_info in exits:
@@ -195,9 +214,7 @@ class MeshtasticManager:
             snr = packet.get("rxSnr")
             rssi = packet.get("rxRssi")
             pkt_id = packet.get("id")
-            hop_start = packet.get("hopStart", 0)
-            hop_limit = packet.get("hopLimit", 0)
-            hops = (hop_start - hop_limit) if hop_start else None
+            hops = _hops_from_packet(packet)
 
             if not text:
                 return
@@ -229,6 +246,9 @@ class MeshtasticManager:
                 msg_ts = msg.timestamp.isoformat()
                 node = db.query(Node).filter_by(node_id=from_id).first()
                 from_name = node.long_name if node else None
+                if node and hops is not None:
+                    node.hops_away = hops
+                    db.commit()
             finally:
                 db.close()
 
@@ -256,6 +276,7 @@ class MeshtasticManager:
             user = packet.get("decoded", {}).get("user", {})
             if not user:
                 return
+            hops = _hops_from_packet(packet)
 
             db = SessionLocal()
             try:
@@ -265,6 +286,7 @@ class MeshtasticManager:
                     long_name=user.get("longName", ""),
                     short_name=user.get("shortName", ""),
                     hardware_model=user.get("hwModel", ""),
+                    hops_away=hops,
                 )
             finally:
                 db.close()
@@ -274,9 +296,61 @@ class MeshtasticManager:
                 "node_id": from_id,
                 "long_name": user.get("longName", ""),
                 "short_name": user.get("shortName", ""),
+                "hops_away": hops,
             })
         except Exception:
             log.exception("Error handling nodeinfo packet")
+
+    def _on_traceroute(self, packet, interface):
+        try:
+            traced_id = packet.get("fromId", "")
+            if not traced_id:
+                return
+            decoded = packet.get("decoded", {})
+            tr = decoded.get("traceroute", {})
+
+            def fmt_hop(node_num, snr_raw):
+                return {
+                    "node_id": f"!{node_num:08x}" if node_num is not None else None,
+                    "snr": None if snr_raw is None or snr_raw == UNKNOWN_SNR else snr_raw / 4,
+                }
+
+            route_nums = tr.get("route", [])
+            snr_towards = tr.get("snrTowards", [])
+            route = [
+                fmt_hop(n, snr_towards[i] if i < len(snr_towards) else None)
+                for i, n in enumerate(route_nums)
+            ]
+            # snrTowards has one more entry than route: the final hop into the traced node
+            if len(snr_towards) == len(route_nums) + 1:
+                route.append(fmt_hop(packet.get("from"), snr_towards[-1]))
+
+            route_back_nums = tr.get("routeBack", [])
+            snr_back = tr.get("snrBack", [])
+            route_back = []
+            # Only valid when hopStart is present and snrBack accounts for the final hop back to us
+            if "hopStart" in packet and len(snr_back) == len(route_back_nums) + 1:
+                route_back = [
+                    fmt_hop(n, snr_back[i] if i < len(snr_back) else None)
+                    for i, n in enumerate(route_back_nums)
+                ]
+                route_back.append(fmt_hop(packet.get("to"), snr_back[-1]))
+
+            db = SessionLocal()
+            try:
+                result = save_traceroute(db, traced_id, route, route_back)
+            finally:
+                db.close()
+
+            self._broadcast({
+                "type": "traceroute",
+                "node_id": traced_id,
+                "route": route,
+                "route_back": route_back,
+                "timestamp": result["timestamp"],
+            })
+        except Exception:
+            log.exception("Error handling traceroute packet")
 
     def _fire_geofence_webhook(self, node_id: str, exit_info: dict):
         if not GEOFENCE_WEBHOOK_URL:
@@ -403,6 +477,22 @@ class MeshtasticManager:
         }
         self._broadcast(event)
         return event
+
+    def send_traceroute(self, dest_id: str, hop_limit: int = 3, channel: int = 0) -> dict:
+        if not self._interface or not self._connected:
+            raise RuntimeError("Not connected to Meshtastic")
+
+        from meshtastic.protobuf import mesh_pb2, portnums_pb2
+
+        pkt = self._interface.sendData(
+            mesh_pb2.RouteDiscovery(),
+            destinationId=dest_id,
+            portNum=portnums_pb2.PortNum.TRACEROUTE_APP,
+            wantResponse=True,
+            channelIndex=channel,
+            hopLimit=hop_limit,
+        )
+        return {"ok": True, "request_id": pkt.id if pkt else None}
 
     def disconnect(self):
         self._auto_reconnect = False

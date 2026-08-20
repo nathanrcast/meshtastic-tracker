@@ -34,6 +34,11 @@ export const api = {
     else localStorage.removeItem("meshtastic-api-key");
   },
   nodes: (tracked = false) => fetchJSON(`/nodes${tracked ? "?tracked=true" : ""}`),
+  node: (nodeId) => fetchJSON(`/nodes/${encodeURIComponent(nodeId)}`),
+  traceroute: (nodeId) =>
+    fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/traceroute`, { method: "POST" }),
+  lastTraceroute: (nodeId) =>
+    fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/traceroute`).catch(() => null),
   setTracked: (nodeId, isTracked) =>
     fetchJSON(`/nodes/${encodeURIComponent(nodeId)}/tracked`, {
       method: "PATCH",
@@ -117,6 +122,7 @@ export function useWebSocket(onEvent) {
     let ws;
     let reconnectTimer;
     let attempt = 0;
+    let cancelled = false;
 
     function backoffMs() {
       // 1s, 2s, 4s, 8s, ... cap at 30s + jitter
@@ -141,6 +147,7 @@ export function useWebSocket(onEvent) {
       };
 
       ws.onclose = () => {
+        if (cancelled) return;
         const delay = backoffMs();
         attempt += 1;
         reconnectTimer = setTimeout(connect, delay);
@@ -156,6 +163,7 @@ export function useWebSocket(onEvent) {
     connect();
 
     return () => {
+      cancelled = true;
       clearTimeout(reconnectTimer);
       if (ws) ws.close();
     };
