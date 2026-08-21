@@ -33,14 +33,19 @@ This project runs a **persistent backend** that connects to your radio over TCP 
 
 - **Real-time map** with node markers, movement trail polylines, and geofence circles (Leaflet + CartoDB)
 - **Multi-channel messaging** with send/receive, emoji reactions, and drag-to-reorder channel tabs
+- **Direct messages** — per-node DM threads, opened from the Nodes list, a map marker popup, or a node's details page
+- **Node details page** — click any node for its telemetry, position trail on a mini map, DM thread, and on-demand traceroute
+- **Traceroute** — request a live route to any node and see per-hop SNR; last result persists across reloads
+- **Mesh topology** — hop-count column on the Nodes page, sourced from the device nodedb and live packets
 - **Node tracking** — star devices to filter the map to "My Nodes" with per-node visibility toggles
+- **Online filter** — narrow the Nodes table to only currently-reachable devices
 - **Position history** — SQLite stores days/weeks of positions, configurable auto-pruning
 - **Geofence alerts** — define geographic boundaries, get webhook notifications when tracked nodes leave
 - **Per-node color coding** — deterministic hash-based palette, consistent across map, trails, and messages
 - **Dual theme** — dark hacker (cyan) and light corporate (blue), persisted per-browser
 - **API key auth** — optional shared key protects all endpoints (opt-in via env var)
 - **Health API** — `/api/health` endpoint for external monitoring (e.g., n8n, Uptime Kuma)
-- **WebSocket broadcasting** — real-time position, message, and geofence events to all connected clients
+- **WebSocket broadcasting** — real-time position, message, reaction, node, geofence, and traceroute events to all connected clients
 - **Stale node detection** — automatic offline marking after configurable timeout
 
 ## Architecture
@@ -138,28 +143,36 @@ Each device that should appear on the map:
 ### Using the Web App
 
 1. Open the web app and go to the **Nodes** page
-2. Star each device you want to track (click the star icon)
-3. On the **Map** page, "My Nodes" shows only starred devices with colored markers and trails
-4. Use the message panel to send and receive on any channel
-5. Open the **Geofences** panel to define alert boundaries
+2. Star each device you want to track (click the star icon); filter to **Online** or **Tracked** as needed, and sort by hop count to see mesh topology
+3. Click a node to open its **details page** — telemetry, position trail, a DM thread, and a **Run traceroute** button
+4. On the **Map** page, "My Nodes" shows only starred devices with colored markers and trails
+5. Use the message panel to send and receive on any channel, or click a node's name to open a DM
+6. Open the **Geofences** panel to define alert boundaries
 
 ## API Endpoints
 
 | Method | Route | Description |
 |---|---|---|
 | `GET` | `/api/nodes` | List all nodes (`?tracked=true` for starred only) |
+| `GET` | `/api/nodes/{id}` | Single node (used by the details page) |
 | `PATCH` | `/api/nodes/{id}/tracked` | Star/unstar a node |
-| `GET` | `/api/nodes/{id}/positions` | Position history (`?hours=24`) |
+| `GET` | `/api/nodes/{id}/positions` | Position history (`?hours=24` or `?start=&end=` ISO datetimes) |
+| `POST` | `/api/nodes/{id}/traceroute` | Request a live traceroute; result arrives over the WebSocket |
+| `GET` | `/api/nodes/{id}/traceroute` | Last stored traceroute result for a node |
 | `GET` | `/api/channels` | Active channels from device |
-| `GET` | `/api/messages` | Messages (`?channel=0&limit=100`) |
-| `POST` | `/api/messages` | Send a message (`{"text": "...", "channel": 0}`) |
+| `GET` | `/api/messages` | Channel messages (`?channel=0&limit=100`) |
+| `POST` | `/api/messages` | Send a message (`{"text": "...", "channel": 0}`, add `"to_id"` for a DM) |
 | `POST` | `/api/messages/{packet_id}/react` | Send an emoji reaction (`{"emoji": "👍"}`) |
+| `GET` | `/api/messages/dm/{peer_id}` | Direct message history with a specific node |
+| `GET` | `/api/conversations` | List of active DM threads |
 | `GET` | `/api/geofences` | List all geofences |
 | `POST` | `/api/geofences` | Create a geofence |
 | `PATCH` | `/api/geofences/{id}` | Update a geofence |
 | `DELETE` | `/api/geofences/{id}` | Delete a geofence |
+| `POST` | `/api/disconnect` | Release the radio's TCP slot (e.g. to use the phone app) |
+| `POST` | `/api/reconnect` | Reconnect after a manual disconnect |
 | `GET` | `/api/health` | Health check (always open, no auth required) |
-| `WS` | `/api/ws` | Real-time events (position, message, reaction, node_update, geofence_exit) |
+| `WS` | `/api/ws` | Real-time events (position, message, reaction, node_update, geofence_exit, traceroute) |
 
 ## License
 
