@@ -242,7 +242,9 @@ def api_node_positions(
 
 
 @app.post("/api/nodes/{node_id}/traceroute")
-def api_send_traceroute(node_id: str, request: Request):
+def api_send_traceroute(node_id: str, request: Request, db=Depends(_get_db_dep)):
+    if not get_node(db, node_id):
+        raise HTTPException(status_code=404, detail="Node not found")
     try:
         result = mesh.send_traceroute(node_id)
         log.info("Traceroute requested for %s by %s", node_id, request.client.host if request.client else "unknown")
