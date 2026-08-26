@@ -7,13 +7,20 @@ Internal architecture, library quirks, and gotchas for the meshtastic-tracker se
 - Python FastAPI + SQLite + React/Vite/Tailwind SPA, WebSocket for real-time.
 - Deploy: push to GitHub → `git pull` on Ubuntu .11 → `docker compose up -d --build`.
 - Deploy folder on .11: `~/docker/meshtastic-web/` (legacy name — repo is source of truth).
-- Runs at `meshtastic.int.anathemasit.com` (.11:8200).
+- Runs at whatever host/port the `docker-compose.yml` port mapping publishes (`8200:8000` by default).
 
 ## Hardware
 
 - **Gateway:** Heltec V3 (ESP32-S3 + SX1262 LoRa) connected via TCP.
 - Single TCP slot — only one client (web app OR phone app) at a time. Web app has disconnect/reconnect button to release the slot.
 - Config: `MESHTASTIC_HOST` / `MESHTASTIC_PORT` env vars in docker-compose.
+
+## Basemap
+
+- Config lives in `src/config.py` (`BASEMAP_MODE`, `BASEMAP_PMTILES_DIR`, `BASEMAP_PMTILES_FILE`, `MAP_DEFAULT_CENTER`, `MAP_DEFAULT_ZOOM`) and is exposed to the frontend at runtime via `/api/health`'s `basemap` / `map_default` fields — not a Vite build-time `VITE_*` var, since the Dockerfile's frontend stage takes no build args.
+- `openfreemap` (default): `web/src/lib/basemap.js` points MapLibre at a `tiles.openfreemap.org` style URL directly. No key, no request limits, requires outbound internet.
+- `pmtiles` (opt-in, fully offline-capable): a self-hosted `.pmtiles` archive, bind-mounted at `BASEMAP_PMTILES_DIR` and served by FastAPI under `/tiles` (mounted in `src/api.py`, before the SPA catch-all — order matters). Frontend builds the MapLibre style from `@protomaps/basemaps`' `layers()`/`namedFlavor()`, with glyphs/sprites served from `web/public/basemaps-assets/` (vendored from `protomaps/basemaps-assets`, see its `LICENSE-NOTICE.md`) so nothing leaves this origin. See README "Basemap" section for building the archive.
+- The CSP (`src/api.py`, `CSP_HEADER`) is built once at import time from `BASEMAP_MODE` — `pmtiles` mode gets a fully same-origin policy, `openfreemap` mode adds exactly one host. MapLibre's worker is self-hosted via `setWorkerUrl()` (in `basemap.js`) rather than the default `blob:` worker, so no `worker-src`/`blob:` CSP relaxation is needed either way.
 
 ## Backend layout
 
@@ -90,7 +97,7 @@ Internal architecture, library quirks, and gotchas for the meshtastic-tracker se
 ## Frontend
 
 - React Router: `/` (Map), `/nodes` (Nodes table), `/nodes/:nodeId` (node details).
-- Map: Leaflet with CartoDB dark tiles, tracked vs all node filtering, position persisted to localStorage.
+- Map: Leaflet, with MapLibre GL rendered as a Leaflet layer for the basemap (`@maplibre/maplibre-gl-leaflet`) — see "Basemap" below. Tracked vs all node filtering, position persisted to localStorage.
 - `MessagePanel`: collapsible side panel on Map page, multi-channel tabs, DM tabs (violet).
 - Direct messaging: click a node row to open its details page (inline DM thread), or "Message" in a map popup to open the map's DM tab directly.
 - `usePersistedState` hook: drop-in `useState` replacement backed by localStorage, handles Sets via JSON array serialization.

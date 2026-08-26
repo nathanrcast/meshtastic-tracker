@@ -6,6 +6,8 @@ services:
     env_file: .env
     volumes:
       - meshtastic_data:/app/data
+      # Only needed for BASEMAP_MODE=pmtiles — see README "Basemap" section.
+      # - ./tiles:/app/tiles:ro
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

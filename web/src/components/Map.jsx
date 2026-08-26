@@ -4,13 +4,8 @@ import "leaflet/dist/leaflet.css";
 import { useTheme } from "../theme";
 import { nodeColor } from "../lib/nodeColors";
 import { batteryColor, timeAgo } from "../lib/utils.jsx";
+import { getBasemapInfo, styleFor } from "../lib/basemap";
 
-const TILES = {
-  hacker: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  corporate: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-};
-const TILE_ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 const MAP_VIEW_KEY = "meshtastic-map-view";
 
 function createIcon(online, tracked, isDark, nodeClr) {
@@ -144,15 +139,29 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, 
   const trailsRef = useRef({});
   const fenceLayersRef = useRef({});
   const [hasFitBounds, setHasFitBounds] = useState(false);
+  const [basemapInfo, setBasemapInfo] = useState(null);
   const { theme } = useTheme();
   const isDark = theme === "hacker";
 
-  // Initialize map
+  // Fetch basemap mode/attribution/default-view once (cached across mounts —
+  // see getBasemapInfo in lib/basemap.js).
   useEffect(() => {
-    if (mapRef.current) return;
+    let cancelled = false;
+    getBasemapInfo().then((info) => {
+      if (!cancelled) setBasemapInfo(info);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    let center = [33.45, -112.07];
-    let zoom = 10;
+  // Initialize map (deferred until basemapInfo resolves, so it can set the
+  // correct default center/zoom and basemap style in one shot)
+  useEffect(() => {
+    if (mapRef.current || !basemapInfo) return;
+
+    let center = basemapInfo.mapDefault.center;
+    let zoom = basemapInfo.mapDefault.zoom;
     let restored = false;
     try {
       const saved = JSON.parse(localStorage.getItem(MAP_VIEW_KEY));
@@ -164,8 +173,8 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, 
     } catch {}
     if (restored) setHasFitBounds(true);
 
-    const map = L.map(containerRef.current, { center, zoom, zoomControl: true });
-    tileRef.current = L.tileLayer(TILES[theme] || TILES.hacker, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+    const map = L.map(containerRef.current, { center, zoom, zoomControl: true, maxZoom: 19 });
+    tileRef.current = L.maplibreGL({ style: styleFor(theme, basemapInfo.basemap) }).addTo(map);
     mapRef.current = map;
 
     map.on("moveend", () => {
@@ -182,14 +191,13 @@ export default function Map({ nodes, trails, trackedIds, geofences, onMapClick, 
       mapRef.current = null;
       tileRef.current = null;
     };
-  }, []);
+  }, [basemapInfo]);
 
-  // Swap tiles on theme change
+  // Swap basemap style on theme change (in place — no map rebuild, view kept)
   useEffect(() => {
-    if (!mapRef.current || !tileRef.current) return;
-    const url = TILES[theme] || TILES.hacker;
-    tileRef.current.setUrl(url);
-  }, [theme]);
+    if (!mapRef.current || !tileRef.current || !basemapInfo) return;
+    tileRef.current.getMaplibreMap().setStyle(styleFor(theme, basemapInfo.basemap));
+  }, [theme, basemapInfo]);
 
   // Map click handler for geofence placement
   useEffect(() => {

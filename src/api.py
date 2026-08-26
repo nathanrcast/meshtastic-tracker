@@ -1,6 +1,7 @@
 import asyncio
 import hmac
 import logging
+import mimetypes
 import os
 import time
 from collections import defaultdict
@@ -15,8 +16,13 @@ from pathlib import Path
 
 from src.config import (
     API_KEY,
+    BASEMAP_MODE,
+    BASEMAP_PMTILES_DIR,
+    BASEMAP_PMTILES_FILE,
     CORS_ALLOW_ORIGINS,
     LOG_LEVEL,
+    MAP_DEFAULT_CENTER,
+    MAP_DEFAULT_ZOOM,
     MAX_MESSAGES_LIMIT,
     MAX_POSITIONS_HOURS,
     PRUNE_DAYS,
@@ -125,6 +131,30 @@ def _check_rate_limit(client_ip: str) -> bool:
 
 # -- Security headers --
 
+# NOTE: 'unsafe-inline' for styles is required by current Tailwind build.
+# We removed the open unpkg.com CDN. The basemap's MapLibre worker is
+# self-hosted via setWorkerUrl() (web/src/lib/basemap.js) instead of the
+# default blob: worker, so no worker-src/blob: directive is needed at all,
+# same-origin or not. What varies by BASEMAP_MODE (src/config.py) is img-src/
+# connect-src: "openfreemap" mode adds exactly one hosted origin; self-hosted
+# "pmtiles" mode gets the strictest policy since nothing leaves this origin.
+if BASEMAP_MODE == "pmtiles":
+    _BASEMAP_IMG_SRC = ""
+    _BASEMAP_CONNECT_SRC = ""
+else:
+    _BASEMAP_IMG_SRC = " https://tiles.openfreemap.org"
+    _BASEMAP_CONNECT_SRC = " https://tiles.openfreemap.org"
+
+CSP_HEADER = (
+    "default-src 'self'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src https://fonts.gstatic.com; "
+    f"img-src 'self' data: blob:{_BASEMAP_IMG_SRC}; "
+    f"connect-src 'self' ws: wss:{_BASEMAP_CONNECT_SRC}; "
+    "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+)
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -133,17 +163,7 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), usb=()"
-    # NOTE: 'unsafe-inline' for styles is required by current Tailwind build.
-    # We removed the open unpkg.com CDN. Only allow known tile hosts.
-    csp = (
-        "default-src 'self'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src https://fonts.gstatic.com; "
-        "img-src 'self' https://*.basemaps.cartocdn.com data:; "
-        "connect-src 'self' ws: wss:; "
-        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
-    )
-    response.headers["Content-Security-Policy"] = csp
+    response.headers["Content-Security-Policy"] = CSP_HEADER
     return response
 
 
@@ -333,6 +353,27 @@ def api_reconnect(request: Request):
     return {"ok": True}
 
 
+# Basemap config for the frontend. This is served over /api/health (rather than
+# a dedicated route, or baked in at frontend build time) because the Vite build
+# takes no ARGs/ENV — see BASEMAP_MODE in src/config.py for why this has to be a
+# runtime value, not a build-time one.
+if BASEMAP_MODE == "pmtiles":
+    BASEMAP_CONFIG = {
+        "mode": "pmtiles",
+        "url": f"/tiles/{BASEMAP_PMTILES_FILE}",
+        "attribution": (
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> '
+            '&copy; <a href="https://protomaps.com">Protomaps</a>'
+        ),
+    }
+else:
+    BASEMAP_CONFIG = {
+        "mode": "openfreemap",
+        "url": "https://tiles.openfreemap.org/styles",
+        "attribution": None,  # MapLibre adds OpenFreeMap's required attribution itself
+    }
+
+
 @app.get("/api/health")
 def api_health(db=Depends(_get_db_dep)):
     stats = get_stats(db)
@@ -342,6 +383,8 @@ def api_health(db=Depends(_get_db_dep)):
         "message_count": stats["message_count"],
         "my_node_id": mesh.my_node_id,
         "auth_required": bool(API_KEY),
+        "basemap": BASEMAP_CONFIG,
+        "map_default": {"center": MAP_DEFAULT_CENTER, "zoom": MAP_DEFAULT_ZOOM},
     }
 
 
@@ -438,6 +481,26 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 if STATIC_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="static")
+
+    # Self-hosted basemap archive, only mounted in "pmtiles" mode. Must be
+    # registered before the /{path:path} catch-all below — route order decides
+    # the match, and StaticFiles/FileResponse (Starlette 0.46) already honors
+    # Range requests, which is exactly what the PMTiles client needs.
+    if BASEMAP_MODE == "pmtiles":
+        if Path(BASEMAP_PMTILES_DIR).is_dir():
+            # Python's mimetypes module doesn't know .pmtiles; without this it
+            # serves as text/plain. The PMTiles client only does raw byte-range
+            # fetches and ignores Content-Type, so this doesn't fix a bug, just
+            # bad HTTP hygiene that could confuse a proxy/CDN put in front later.
+            mimetypes.add_type("application/octet-stream", ".pmtiles")
+            app.mount("/tiles", StaticFiles(directory=BASEMAP_PMTILES_DIR), name="tiles")
+        else:
+            log.warning(
+                "BASEMAP_MODE=pmtiles but BASEMAP_PMTILES_DIR=%s does not exist "
+                "— the map will have no basemap until it is mounted with the "
+                "archive present (see README \"Basemap\" section).",
+                BASEMAP_PMTILES_DIR,
+            )
 
     def _is_safe_under(base: Path, target: Path) -> bool:
         try:

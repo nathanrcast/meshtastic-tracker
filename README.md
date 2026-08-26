@@ -31,7 +31,7 @@ This project runs a **persistent backend** that connects to your radio over TCP 
 
 ## Features
 
-- **Real-time map** with node markers, movement trail polylines, and geofence circles (Leaflet + CartoDB)
+- **Real-time map** with node markers, movement trail polylines, and geofence circles (Leaflet + MapLibre GL, basemap via [OpenFreeMap](https://openfreemap.org/) — no API key, no request limits, and a self-hosted offline mode is available, see [Basemap](#basemap))
 - **Multi-channel messaging** with send/receive, emoji reactions, and drag-to-reorder channel tabs
 - **Direct messages** — per-node DM threads, opened from the Nodes list, a map marker popup, or a node's details page
 - **Node details page** — click any node for its telemetry, position trail on a mini map, DM thread, and on-demand traceroute
@@ -56,7 +56,7 @@ Meshtastic Radio (TCP mode, e.g. Heltec V3)
 FastAPI + meshtastic-python (always-on gateway)
     |  SQLite (nodes, positions, messages, geofences)
     |  REST API + WebSocket
-React SPA (Vite + Tailwind + Leaflet)
+React SPA (Vite + Tailwind + Leaflet, basemap via MapLibre GL)
 ```
 
 ## Quick Start
@@ -77,6 +77,26 @@ Open `http://<your-host>:8200` in a browser.
 - A Meshtastic device with TCP server enabled and WiFi connected to your LAN
   - In the Meshtastic app: **Settings > Network > WiFi** (connect to your LAN). TCP server is enabled by default when WiFi is connected.
 
+## Basemap
+
+The map works out of the box with no configuration — it uses [OpenFreeMap](https://openfreemap.org/) hosted vector tiles: no API key, no signup, no request limits.
+
+If you'd rather have zero external tile requests (e.g. the app should keep working with no internet), self-host a [Protomaps](https://protomaps.com/) basemap instead:
+
+```bash
+# 1. Install the pmtiles CLI: https://github.com/protomaps/go-pmtiles/releases
+# 2. Pick a recent daily build: https://maps.protomaps.com/builds
+# 3. Extract your region — bbox is min_lon,min_lat,max_lon,max_lat
+#    (find one at http://bboxfinder.com)
+mkdir -p tiles
+pmtiles extract https://build.protomaps.com/<YYYYMMDD>.pmtiles \
+  tiles/basemap.pmtiles --bbox=<MIN_LON>,<MIN_LAT>,<MAX_LON>,<MAX_LAT> --maxzoom=15
+```
+
+Then in `.env` set `BASEMAP_MODE=pmtiles`, uncomment the `./tiles:/app/tiles:ro` volume line in `docker-compose.yml`, and `docker compose up -d`.
+
+`--maxzoom=15` is the daily build's native max zoom — MapLibre overzooms cleanly past it in the UI, just without extra street-level detail. Re-run the extract against a newer daily build occasionally, since OSM data drifts over time.
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -89,6 +109,9 @@ Open `http://<your-host>:8200` in a browser.
 | `API_KEY` | *(empty — auth disabled)* | Shared API key. If set, all endpoints except `/api/health` require `X-API-Key` header |
 | `PRUNE_DAYS` | `30` | Auto-delete positions, messages, and reactions older than this many days (runs on startup) |
 | `GEOFENCE_WEBHOOK_URL` | *(empty — disabled)* | URL to POST a JSON payload when a tracked node exits a geofence |
+| `BASEMAP_MODE` | `openfreemap` | `openfreemap` (hosted, no key/limits) or `pmtiles` (self-hosted, offline-capable — see [Basemap](#basemap)) |
+| `MAP_DEFAULT_CENTER` | `0,0` | Initial map view before any node data arrives (`lat,lon`) |
+| `MAP_DEFAULT_ZOOM` | `2` | Initial map zoom before any node data arrives |
 
 ### Geofence Webhook Payload
 

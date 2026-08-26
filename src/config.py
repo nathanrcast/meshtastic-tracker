@@ -1,3 +1,4 @@
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -48,3 +49,26 @@ CORS_ALLOW_ORIGINS = [
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+# Basemap
+BASEMAP_MODE = os.getenv("BASEMAP_MODE", "openfreemap").strip().lower()
+if BASEMAP_MODE not in ("openfreemap", "pmtiles"):
+    logging.getLogger("meshtastic-web").warning(
+        "BASEMAP_MODE=%r is not a recognized value (expected 'openfreemap' or 'pmtiles') "
+        "— falling back to 'openfreemap'", BASEMAP_MODE
+    )
+    BASEMAP_MODE = "openfreemap"
+BASEMAP_PMTILES_DIR = os.getenv("BASEMAP_PMTILES_DIR", "/app/tiles")
+BASEMAP_PMTILES_FILE = os.getenv("BASEMAP_PMTILES_FILE", "basemap.pmtiles")
+
+# Map default view (used until node data arrives and the map fits to it, or a
+# saved view is restored from the browser's localStorage)
+def _parse_latlon(raw, default):
+    try:
+        lat_s, lon_s = raw.split(",")
+        return [float(lat_s), float(lon_s)]
+    except (ValueError, AttributeError):
+        return default
+
+MAP_DEFAULT_CENTER = _parse_latlon(os.getenv("MAP_DEFAULT_CENTER", "0,0"), [0.0, 0.0])
+MAP_DEFAULT_ZOOM = int(os.getenv("MAP_DEFAULT_ZOOM", "2"))
