@@ -109,7 +109,17 @@ Then in `.env` set `BASEMAP_MODE=pmtiles`, uncomment the `./tiles:/app/tiles:ro`
 | `API_KEY` | *(empty — auth disabled)* | Shared API key. If set, all endpoints except `/api/health` require `X-API-Key` header |
 | `PRUNE_DAYS` | `30` | Auto-delete positions, messages, and reactions older than this many days (runs on startup) |
 | `GEOFENCE_WEBHOOK_URL` | *(empty — disabled)* | URL to POST a JSON payload when a tracked node exits a geofence |
+| `GEOFENCE_WEBHOOK_ALLOWED_HOSTS` | *(empty)* | Comma-separated hostname allowlist for geofence webhooks (defense-in-depth) |
+| `RATE_LIMIT` | `20` | Max requests per client per `RATE_WINDOW_SECONDS` |
+| `RATE_WINDOW_SECONDS` | `60` | Window size in seconds for `RATE_LIMIT` |
+| `MAX_MESSAGES_LIMIT` | `500` | Server-side cap on `?limit=` for `/api/messages` |
+| `MAX_POSITIONS_HOURS` | `720` | Server-side cap on `?hours=` for position history |
+| `MAX_TRAIL_POSITIONS` | `2000` | Server-side cap on positions returned for map trails |
+| `CORS_ALLOW_ORIGINS` | *(empty — same-origin only)* | Comma-separated allowed origins |
+| `LOG_LEVEL` | `INFO` | Python logging level |
 | `BASEMAP_MODE` | `openfreemap` | `openfreemap` (hosted, no key/limits) or `pmtiles` (self-hosted, offline-capable — see [Basemap](#basemap)) |
+| `BASEMAP_PMTILES_DIR` | `/app/tiles` | Directory containing the pmtiles archive (mounted via `docker-compose.yml`) |
+| `BASEMAP_PMTILES_FILE` | `basemap.pmtiles` | Filename of the pmtiles archive within `BASEMAP_PMTILES_DIR` |
 | `MAP_DEFAULT_CENTER` | `0,0` | Initial map view before any node data arrives (`lat,lon`) |
 | `MAP_DEFAULT_ZOOM` | `2` | Initial map zoom before any node data arrives |
 
