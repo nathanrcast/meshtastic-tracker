@@ -7,5 +7,5 @@ node_modules/
 web/dist/
 .venv/
 tiles/
-CLAUDE.md
 .claude/
+CLAUDE.local.md
