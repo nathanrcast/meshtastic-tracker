@@ -4,7 +4,7 @@ Self-hosted dashboard for a Meshtastic LoRa mesh: an always-on TCP gateway (`src
 
 ## Commands
 
-- `cd web && npm run build` — SPA build (`vite build` → `web/dist/`).
+- Gate (no test suite): `python3 -m compileall -q src && cd web && npm run build` (`vite build` → `web/dist/`).
 - `docker compose up -d --build` — full stack.
 
 ## Invariants
